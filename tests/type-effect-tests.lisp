@@ -3,7 +3,7 @@
 ;;;; Covers: free variables, substitution, bidirectional checking, typeclass,
 ;;;; effect types, effect rows, and rank-N polymorphism (forall).
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite cl-cc-type-serial-suite
   :description "Serial type-system tests that share fresh-var and registry state"

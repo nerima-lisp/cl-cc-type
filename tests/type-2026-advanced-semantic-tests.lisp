@@ -4,7 +4,7 @@
 ;;;; SIMD, routing, utility types, regions, capabilities, units, FFI, QTT, CIC, termination,
 ;;;; validators, and advanced contract enforcement tests.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite cl-cc-unit-suite)
 

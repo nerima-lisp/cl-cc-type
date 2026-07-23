@@ -3,7 +3,7 @@
 ;;;; Tests for src/type/constraint.lisp:
 ;;;; Smart constructors, constraint-free-vars, constraint-substitute.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite constraint-suite :description "OutsideIn(X
   :parent cl-cc-unit-suite) 

@@ -4,7 +4,7 @@
 ;;;; Each typecase arm is exercised at least once, plus constraint emission
 ;;;; and the gradual-typing fallback.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite solver-suite)
 

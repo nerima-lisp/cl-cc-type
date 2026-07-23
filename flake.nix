@@ -7,6 +7,11 @@
       url = "github:nerima-lisp/cl-cc-ast";
       flake = false;
     };
+    # Test-only: cl-weave test framework.
+    cl-weave = {
+      url = "github:nerima-lisp/cl-weave";
+      flake = false;
+    };
   };
 
   outputs =
@@ -14,6 +19,7 @@
       self,
       nixpkgs,
       cl-cc-ast,
+      cl-weave,
     }:
     let
       systems = [
@@ -62,6 +68,20 @@
 
       checks = forAllSystems (pkgs: {
         compile = self.packages.${pkgs.stdenv.hostPlatform.system}.default;
+
+        test = pkgs.stdenvNoCC.mkDerivation {
+          name = "cl-cc-type-test";
+          src = self;
+          nativeBuildInputs = [ pkgs.sbcl ];
+          buildPhase = ''
+            export HOME="$TMPDIR/home"
+            mkdir -p "$HOME"
+            export CL_CC_AST_ROOT="${toString cl-cc-ast}"
+            export CL_CC_TYPE_CL_WEAVE_ROOT="${toString cl-weave}"
+            sbcl --noinform --non-interactive --script scripts/run-tests.lisp
+          '';
+          installPhase = "touch $out";
+        };
       });
     };
 }

@@ -3,7 +3,7 @@
 ;;;; Tests for src/type/effect.lisp:
 ;;;; effect-def, effect registry, effect-row-union, effect-row-subset-p.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite effect-suite :description "Algebraic effect system tests"
   :parent cl-cc-unit-suite)

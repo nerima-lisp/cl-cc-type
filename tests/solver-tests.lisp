@@ -3,7 +3,7 @@
 ;;;; Tests for src/type/solver.lisp:
 ;;;; solve-constraints and collect-constraints.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite solver-suite
   :description "OutsideIn(X) constraint solver tests"

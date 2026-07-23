@@ -6,7 +6,7 @@
 ;;;; - Type inference (Algorithm W)
 ;;;; - Generalization and instantiation (let-polymorphism)
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite cl-cc-unit-suite)
 

@@ -4,7 +4,7 @@
 ;;;; type-name-subtype-p, is-subtype-p, find-common-supertype,
 ;;;; type-join, type-meet.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite subtyping-suite :description "Subtyping relation and lattice operation tests"
   :parent cl-cc-unit-suite)

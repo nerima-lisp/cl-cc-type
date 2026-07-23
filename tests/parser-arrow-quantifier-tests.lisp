@@ -4,7 +4,7 @@
 ;;;; forall/exists/mu quantifiers, type-lambda, qualified types (=>), and graded modal (!1/!0/!W).
 ;;;; Suite: parser-suite (defined in parser-tests.lisp).
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite parser-suite)
 

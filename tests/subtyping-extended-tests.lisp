@@ -4,7 +4,7 @@
 ;;;; base cases in subtyping-tests.lisp. Depends on subtyping-tests.lisp being
 ;;;; loaded first (via ASDF :serial t) for the prim helper and suite definition.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite subtyping-suite)
 

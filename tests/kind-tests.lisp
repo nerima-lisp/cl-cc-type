@@ -3,7 +3,7 @@
 ;;;; Tests for src/type/kind.lisp:
 ;;;; kind structs, kind-fun, kind-equal-p, kind-to-string, kind variables.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite kind-suite :description "Kind system tests"
   :parent cl-cc-unit-suite)

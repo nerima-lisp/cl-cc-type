@@ -5,7 +5,7 @@
 ;;;; lambda-list parsing, typed parameters, typed AST nodes,
 ;;;; looks-like-type-specifier-p.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite parser-suite)
 

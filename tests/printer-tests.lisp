@@ -5,7 +5,7 @@
 ;;;; list-interleave, looks-like-type-specifier-p.
 ;;;; Coverage goal: every defmethod clause + every data table entry.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite printer-suite :description "Type pretty-printer tests"
   :parent cl-cc-unit-suite)

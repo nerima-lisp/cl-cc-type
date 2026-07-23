@@ -4,7 +4,7 @@
 ;;;; multiplicity-p, mult-add (semiring join), mult-mul (semiring scale),
 ;;;; mult-leq (ordering), mult-to-string.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite multiplicity-suite :description "Graded multiplicity system tests"
   :parent cl-cc-unit-suite)

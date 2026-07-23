@@ -4,7 +4,7 @@
 ;;;;   src/type/types-core.lisp — fresh-rigid-var, type-rigid-equal-p
 ;;;;   src/type/types-env.lisp — type-env-bindings
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite types-extended-coverage-suite
   :description "Extended coverage for types-extended/core/env uncovered branches"

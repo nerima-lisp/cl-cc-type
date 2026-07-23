@@ -5,7 +5,7 @@
 ;;;; typed AST nodes, looks-like-type-specifier-p.
 ;;;; Arrow/quantifier/modal tests → parser-arrow-quantifier-tests.lisp.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite parser-suite :description "Type annotation parser tests"
   :parent cl-cc-unit-suite)

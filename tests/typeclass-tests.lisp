@@ -4,7 +4,7 @@
 ;;;; typeclass-def, typeclass-instance, registries, dict-env,
 ;;;; has-typeclass-instance-p, and check-typeclass-constraint.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite typeclass-suite :description "Multi-parameter typeclass system tests"
   :parent cl-cc-unit-suite)

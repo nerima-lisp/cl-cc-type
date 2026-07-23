@@ -5,7 +5,7 @@
 ;;;; row-closed-p, row-open-p,
 ;;;; effect-row-extend, effect-row-restrict, effect-row-member-p.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite row-suite :description "Row polymorphism operation tests"
   :parent cl-cc-unit-suite)

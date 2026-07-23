@@ -4,7 +4,7 @@
 ;;;; Tests for check-typecase-exhaustiveness, check-etypecase-completeness,
 ;;;; useful-typecase-arms, and typecase-arm-subsumed-p.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 (in-suite cl-cc-unit-suite)
 
 (defmacro assert-exhaustiveness-expected-case (expected then-form else-form)

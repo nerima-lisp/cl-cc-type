@@ -1,6 +1,6 @@
 ;;;; tests/unit/type/checker-tests.lisp — checker module boundary tests
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite cl-cc-unit-suite)
 

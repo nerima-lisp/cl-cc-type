@@ -4,7 +4,7 @@
 ;;;; Advanced type nodes, type-equal-p branches, type-free-vars,
 ;;;; type-env operations, and type-constructor encoding.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defsuite representation-suite :description "Type representation and structural equality tests"
   :parent cl-cc-unit-suite)

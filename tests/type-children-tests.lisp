@@ -4,7 +4,7 @@
 ;;;; Verifies the structural data layer that enables data/logic separation
 ;;;; in type-free-vars, type-occurs-p, and zonk.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (defmacro assert-when-present (value form)
   `(when ,value ,form))

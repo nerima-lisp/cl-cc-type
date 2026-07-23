@@ -3,7 +3,7 @@
 ;;; Tests for substitution data structure, zonk on various type constructors,
 ;;; composition, occurs check, generalize/instantiate, and normalization.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 (in-suite cl-cc-type-serial-suite)
 
 ;;; ─── Substitution Structure ─────────────────────────────────────────────

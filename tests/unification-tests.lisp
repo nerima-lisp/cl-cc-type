@@ -4,7 +4,7 @@
 ;;; focusing on coverage gaps: product types, intersection types,
 ;;; type constructors, effect rows, and edge cases.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 (in-suite cl-cc-unit-suite)
 
 ;;; ─── Product Type Unification ───────────────────────────────────────────

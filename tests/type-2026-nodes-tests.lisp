@@ -3,7 +3,7 @@
 ;;;; Covers: 2026 type node extensions (rigid vars, product/variant, exists/mu, HKT app,
 ;;;; record, arrow-mult, linear), ANSI upgrade helpers, and hash-table substitution API.
 
-(in-package :cl-cc/test)
+(in-package :cl-cc-type/test)
 
 (in-suite cl-cc-unit-suite)
 
