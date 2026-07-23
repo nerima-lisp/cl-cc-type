@@ -1,0 +1,44 @@
+{
+  "nodes": {
+    "cl-cc-ast": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1784814404,
+        "narHash": "sha256-011VZBhh0cS6WsxA0tcpK1SV5u7P2k+anWj5FAjWDpU=",
+        "owner": "nerima-lisp",
+        "repo": "cl-cc-ast",
+        "rev": "2fe4617a9ad5b30344796a552dddd1a09efecc4a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "repo": "cl-cc-ast",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1784555310,
+        "narHash": "sha256-/FCliTPgiuV1owejZFNx3Ch9irdvkOfOFl+HHZ+DrtM=",
+        "owner": "NixOS",
+        "repo": "nixpkgs",
+        "rev": "421eebfd0ec7bccd4abe826ce62d7e6e83129493",
+        "type": "github"
+      },
+      "original": {
+        "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "cl-cc-ast": "cl-cc-ast",
+        "nixpkgs": "nixpkgs"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
