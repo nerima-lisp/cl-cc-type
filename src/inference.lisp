@@ -1,4 +1,4 @@
-;;;; packages/type/src/inference.lisp - HM Inference Registries and Helpers
+;;;; inference.lisp - HM Inference Registries and Helpers
 ;;;
 ;;; Contains: class type and alias registries, %infer-fn-binding, %find-fn-type-declaration.
 ;;;
@@ -8,18 +8,10 @@
 
 ;;; Type Inference State
 
-(defvar *class-type-registry* (make-hash-table :test #'eq)
-  "Maps class names to class type descriptors.
+(define-registry class-type
+  :test #'eq
+  :documentation "Maps class names to class type descriptors.
    Each entry is an alist of (slot-name . type-node) pairs.")
-
-(defun register-class-type (name slot-types)
-  "Register a class with its slot types for type inference.
-   SLOT-TYPES is an alist of (slot-name . type-node)."
-  (setf (gethash name *class-type-registry*) slot-types))
-
-(defun lookup-class-type (name)
-  "Look up registered slot types for class NAME. Returns alist or nil."
-  (gethash name *class-type-registry*))
 
 (defun lookup-slot-type (class-name slot-name)
   "Look up the type of SLOT-NAME in CLASS-NAME. Returns type-node or nil."
@@ -50,17 +42,10 @@ Each entry is an alist of (method-name . type-node) pairs.")
     (when methods
       (cdr (assoc method-name methods :test #'eq)))))
 
-(defvar *type-alias-registry* (make-hash-table :test #'eq)
-  "Maps type alias names to their expanded type specifiers.
+(define-registry type-alias
+  :test #'eq
+  :documentation "Maps type alias names to their expanded type specifiers.
    E.g., integer-or-string → (or fixnum string)")
-
-(defun register-type-alias (name type-spec)
-  "Register a type alias NAME expanding to TYPE-SPEC."
-  (setf (gethash name *type-alias-registry*) type-spec))
-
-(defun lookup-type-alias (name)
-  "Look up a type alias. Returns expanded type-spec or nil."
-  (gethash name *type-alias-registry*))
 
 ;;; NOTE: *type-var-counter*, fresh-type-var, reset-type-vars! are defined
 ;;;       in representation.lisp.

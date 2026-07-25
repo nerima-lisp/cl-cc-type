@@ -143,15 +143,6 @@ On failure, signals type-mismatch-error."
   "Infer type of AST in empty environment (convenience function)."
   (infer ast (type-env-empty)))
 
-(defun infer-with-constraints (ast env)
-  "Infer type by generating constraints and then solving them.
-   Returns (values type substitution residual-constraints)."
-  (multiple-value-bind (ty constraints)
-      (collect-constraints ast env)
-    (multiple-value-bind (subst residual)
-        (solve-constraints constraints nil)
-      (values (zonk ty subst) subst residual))))
-
 ;;; Type Annotation
 
 (defun annotate-type (ast env)

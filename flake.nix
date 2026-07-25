@@ -46,12 +46,15 @@
           pname = "cl-cc-type";
           version = "0.1.0";
           src = self;
-          nativeBuildInputs = [ pkgs.sbcl ];
+          nativeBuildInputs = [
+            pkgs.sbcl
+            pkgs.perl
+          ];
           buildPhase = ''
             export HOME="$TMPDIR/home"
             mkdir -p "$HOME"
             export CL_CC_AST_ROOT="${toString cl-cc-ast}"
-            sbcl --noinform --non-interactive --script scripts/run-compile-check.lisp
+            perl scripts/with-timeout.pl 300 sbcl --noinform --script scripts/run-compile-check.lisp
           '';
           installPhase = ''
             mkdir -p "$out/share/common-lisp/source/cl-cc-type"
@@ -72,13 +75,16 @@
         test = pkgs.stdenvNoCC.mkDerivation {
           name = "cl-cc-type-test";
           src = self;
-          nativeBuildInputs = [ pkgs.sbcl ];
+          nativeBuildInputs = [
+            pkgs.sbcl
+            pkgs.perl
+          ];
           buildPhase = ''
             export HOME="$TMPDIR/home"
             mkdir -p "$HOME"
             export CL_CC_AST_ROOT="${toString cl-cc-ast}"
             export CL_CC_TYPE_CL_WEAVE_ROOT="${toString cl-weave}"
-            sbcl --noinform --non-interactive --script scripts/run-tests.lisp
+            perl scripts/with-timeout.pl 300 sbcl --noinform --script scripts/run-tests.lisp
           '';
           installPhase = "touch $out";
         };

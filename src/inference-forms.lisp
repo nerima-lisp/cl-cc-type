@@ -7,7 +7,7 @@
 ;;; infer-if (type-guard narrowing), syntactic-value-p (FR-1604),
 ;;; infer-let, infer-lambda, infer-progn, infer-print,
 ;;; check-qualified-constraints, infer-call, infer-args, infer-body,
-;;; infer-with-env, infer-with-constraints, annotate-type,
+;;; infer-with-env, annotate-type,
 ;;; and condition class definitions (type-error/type-mismatch-error/etc.).
 ;;;
 ;;; Basic infer-* handlers (infer-var through infer-binop), the `infer`

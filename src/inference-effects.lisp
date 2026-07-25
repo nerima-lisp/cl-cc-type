@@ -1,4 +1,4 @@
-;;;; packages/type/src/inference-effects.lisp - Effect Inference (Phase 5)
+;;;; inference-effects.lisp - Effect Inference (Phase 5)
 ;;;
 ;;; Extracted from inference.lisp.
 ;;; infer-effects, infer-with-effects, check-body-effects,
@@ -82,17 +82,12 @@
 
 ;;; Effect Signature Table
 
-(defvar *effect-signature-table* (make-hash-table :test #'eq)
-  "Maps operation names (symbols) to their effect rows (type-effect-row).
+(define-registry effect-signature
+  :test #'eq
+  :var-name *effect-signature-table*
+  :default +pure-effect-row+
+  :documentation "Maps operation names (symbols) to their effect rows (type-effect-row).
    Operations not in this table are treated as pure ({}).")
-
-(defun register-effect-signature (op-name effect-row)
-  "Register that OP-NAME has the given EFFECT-ROW."
-  (setf (gethash op-name *effect-signature-table*) effect-row))
-
-(defun lookup-effect-signature (op-name)
-  "Return the effect-row for OP-NAME, or +pure-effect-row+ if not registered."
-  (gethash op-name *effect-signature-table* +pure-effect-row+))
 
 ;; Initialize built-in effect signatures
 (let ((io-row +io-effect-row+)

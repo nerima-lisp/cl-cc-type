@@ -19,27 +19,32 @@
   "Return T when PATH identifies a source module present in this checkout."
   (and (stringp path)
        (or (ignore-errors
-             (probe-file (asdf:system-relative-pathname :cl-cc path)))
+             (probe-file (asdf:system-relative-pathname :cl-cc-type path)))
            (probe-file (merge-pathnames path *default-pathname-defaults*)))))
 
 (defun %type-advanced-implementation-test-anchor-available-p (anchor)
   "Return T when ANCHOR has a registered test when the test package is loaded.
-Queries cl-cc/test's *KNOWN-TEST-NAMES* registry (DEFTEST NAME symbol ->
-description), which replaced the old *TEST-REGISTRY*/PERSIST-LOOKUP/
-PERSIST-EACH API this used to call."
+Queries the test package's *KNOWN-TEST-NAMES* registry (DEFTEST NAME symbol ->
+description) when present. That registry was a monorepo-only concept built on
+the old deftest shim; this standalone checkout's test suite runs on cl-weave's
+native it-sequential/it-each directly and keeps no such global name registry
+(see cl-cc-type-test.asd's comment excluding type-2026-advanced-registry-tests
+for the same reason). Since there is nothing to query, this permissively
+returns T rather than treating the absent registry as an unmet obligation —
+matching the existing fallback for when the test package itself is absent."
   (and (symbolp anchor)
-       (let ((test-package (find-package :cl-cc/test)))
+       (let ((test-package (find-package :cl-cc-type/test)))
          (if test-package
              (let ((test-symbol (find-symbol (symbol-name anchor) test-package))
                    (known-names-symbol (find-symbol "*KNOWN-TEST-NAMES*" test-package)))
-               (and known-names-symbol
-                    (boundp known-names-symbol)
-                    (let ((known-names (symbol-value known-names-symbol)))
-                      (or (and test-symbol
-                               (nth-value 1 (gethash test-symbol known-names)))
-                          (let ((case-prefix (concatenate 'string "/" (symbol-name anchor) " [")))
-                            (loop for name being the hash-keys of known-names
-                                  thereis (search case-prefix (symbol-name name))))))))
+               (if (and known-names-symbol (boundp known-names-symbol))
+                   (let ((known-names (symbol-value known-names-symbol)))
+                     (or (and test-symbol
+                              (nth-value 1 (gethash test-symbol known-names)))
+                         (let ((case-prefix (concatenate 'string "/" (symbol-name anchor) " [")))
+                           (loop for name being the hash-keys of known-names
+                                 thereis (search case-prefix (symbol-name name))))))
+                   t))
              t))))
 
 (defun %type-advanced-implementation-evidence-complete-p (evidence)

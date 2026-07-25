@@ -11,8 +11,8 @@ only** — AST accessors referenced during constraint collection and inference.
 
 ## Status
 
-Extracted and building standalone against cl-cc-ast. Test wiring (currently the
-monorepo's `deftest` harness) is being migrated to cl-weave in a follow-up.
+Extracted and building standalone against cl-cc-ast. The test suite runs on
+[cl-weave](https://github.com/nerima-lisp/cl-weave) (748 tests).
 
 ## Usage
 
@@ -25,13 +25,22 @@ monorepo's `deftest` harness) is being migrated to cl-weave in a follow-up.
 
 ```bash
 nix develop            # sbcl dev shell (CL_CC_AST_ROOT preset)
-nix flake check        # compile check (loads :cl-cc-type against cl-cc-ast)
+nix flake check        # compile check + test suite (against cl-cc-ast and cl-weave)
 ```
 
-To run the check outside Nix, point `CL_CC_AST_ROOT` at a cl-cc-ast checkout:
+To run these outside Nix, point `CL_CC_AST_ROOT` at a cl-cc-ast checkout and
+`CL_CC_TYPE_CL_WEAVE_ROOT` at a cl-weave checkout:
 
 ```bash
-CL_CC_AST_ROOT=../cl-cc-ast sbcl --script scripts/run-compile-check.lisp
+CL_CC_AST_ROOT=../cl-cc-ast \
+  sbcl --noinform --script scripts/run-compile-check.lisp
+
+CL_CC_AST_ROOT=../cl-cc-ast CL_CC_TYPE_CL_WEAVE_ROOT=../cl-weave \
+  sbcl --noinform --script scripts/run-tests.lisp
+
+# Coverage report (requires SBCL's sb-cover contrib; writes coverage/report/):
+CL_CC_AST_ROOT=../cl-cc-ast CL_CC_TYPE_CL_WEAVE_ROOT=../cl-weave \
+  sbcl --noinform --script scripts/run-coverage.lisp
 ```
 
 ## License

@@ -1,4 +1,4 @@
-;;;; packages/type/src/inference-handlers.lisp - HM Inference Handlers and Dispatcher
+;;;; inference-handlers.lisp - HM Inference Handlers and Dispatcher
 ;;;
 ;;; Contains: infer-var, infer-quote, infer-the, infer-setq, infer-defun,
 ;;; infer-defvar, infer-function, infer-flet, infer-labels, infer-defclass,

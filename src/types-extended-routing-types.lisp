@@ -1,10 +1,9 @@
 ;;;; types-extended-routing-types.lisp — Route, api-spec structs and validators
 (in-package :cl-cc/type)
 
-(define-condition route-validation-error (error)
-  ((detail :initarg :detail :reader route-validation-error-detail))
-  (:report (lambda (condition stream)
-             (format stream "Invalid route: ~A" (route-validation-error-detail condition)))))
+(define-simple-condition route-validation-error error
+  (detail)
+  "Invalid route: ~A" (route-validation-error-detail condition))
 
 (defstruct (route (:constructor %make-route))
   "A concrete typed route descriptor."
@@ -21,13 +20,8 @@
 (defparameter +route-methods+ '(:get :post :put :patch :delete :head :options)
   "Supported HTTP methods for typed routes.")
 
-(defun normalize-route-method (method)
-  "Normalize METHOD into a keyword route method."
-  (cond
-    ((keywordp method) method)
-    ((symbolp method) (intern (symbol-name method) :keyword))
-    ((stringp method) (intern (string-upcase method) :keyword))
-    (t method)))
+(define-keyword-normalizer normalize-route-method (method)
+  "Normalize METHOD into a keyword route method.")
 
 (defun %split-path (path)
   "Split PATH into slash-separated segments."

@@ -95,119 +95,141 @@ Nil is treated as the empty substitution (identity element)."
 ;;; After constraint solving is complete, we zonk the entire AST once
 ;;; to eliminate all indirection through the substitution map.
 
-(defun zonk (ty subst)
-  "Eagerly apply SUBST to TY, following variable chains to fixpoints."
-  (typecase ty
-    (null nil)
-    (type-var
-     (let ((link (type-var-link ty)))
-       (if link
-           (let ((resolved (zonk link subst)))
-             (setf (type-var-link ty) resolved)
-             resolved)
-           (multiple-value-bind (bound found-p) (subst-lookup ty subst)
-             (if found-p
-                 (let ((resolved (zonk bound subst)))
-                   (setf (type-var-link ty) resolved)
-                   resolved)
-                 ty)))))
-    (type-rigid ty)
-    ((or type-primitive type-error) ty)
-    (type-arrow
-     (make-type-arrow-raw
-      :params  (mapcar (lambda (p) (zonk p subst)) (type-arrow-params ty))
-      :return  (zonk (type-arrow-return ty) subst)
-      :effects (when (type-arrow-effects ty) (zonk (type-arrow-effects ty) subst))
-      :mult    (type-arrow-mult ty)))
-    (type-product
-     (make-type-product :elems (mapcar (lambda (e) (zonk e subst)) (type-product-elems ty))))
-    (type-record
-     (make-type-record
-      :fields  (mapcar (lambda (f) (cons (car f) (zonk (cdr f) subst)))
-                       (type-record-fields ty))
-      :row-var (when (type-record-row-var ty) (zonk (type-record-row-var ty) subst))))
-    (type-variant
-     (make-type-variant
-      :cases   (mapcar (lambda (c) (cons (car c) (zonk (cdr c) subst)))
-                       (type-variant-cases ty))
-      :row-var (when (type-variant-row-var ty) (zonk (type-variant-row-var ty) subst))))
-    (type-union
-      (make-type-union-raw
-       :types (mapcar (lambda (t0) (zonk t0 subst)) (type-union-types ty))
-       :constructor-name (type-union-constructor-name ty)))
-    (type-intersection
-     (make-type-intersection-raw
-      :types (mapcar (lambda (t0) (zonk t0 subst)) (type-intersection-types ty))))
-    (type-forall
-     (make-type-forall :var (type-forall-var ty)
-                       :knd (type-forall-knd ty)
-                       :body (zonk (type-forall-body ty) subst)))
-    (type-exists
-     (make-type-exists :var (type-exists-var ty)
-                       :knd (type-exists-knd ty)
-                       :body (zonk (type-exists-body ty) subst)))
-    (type-app
-     (make-type-app :fun (zonk (type-app-fun ty) subst)
-                    :arg (zonk (type-app-arg ty) subst)))
-    (type-lambda
-     (make-type-lambda :var (type-lambda-var ty)
-                       :knd (type-lambda-knd ty)
-                       :body (zonk (type-lambda-body ty) subst)))
-    (type-mu
-     (make-type-mu :var (type-mu-var ty)
-                   :body (zonk (type-mu-body ty) subst)))
-    (type-refinement
-     (make-type-refinement :base (zonk (type-refinement-base ty) subst)
-                           :predicate (type-refinement-predicate ty)))
-    (type-linear
-     (make-type-linear :base (zonk (type-linear-base ty) subst)
-                       :grade (type-linear-grade ty)))
-    (type-capability
-     (make-type-capability :base (zonk (type-capability-base ty) subst)
-                           :cap  (type-capability-cap ty)))
-    (type-effect-row
-     (let* ((effects  (mapcar (lambda (e) (zonk e subst)) (type-effect-row-effects ty)))
-            (rv       (type-effect-row-row-var ty))
-            (resolved (when rv (zonk rv subst))))
-       (cond
-         ((null rv) (make-type-effect-row :effects effects :row-var nil))
-         ((type-effect-row-p resolved)
-          ;; Row-var resolved to another row: merge
-          (make-type-effect-row
-           :effects (append effects (type-effect-row-effects resolved))
-           :row-var (type-effect-row-row-var resolved)))
-         (t (make-type-effect-row :effects effects :row-var resolved)))))
-    (type-effect-op
-     (make-type-effect-op :name (type-effect-op-name ty)
-                          :args (mapcar (lambda (a) (zonk a subst))
-                                         (type-effect-op-args ty))))
-    (type-advanced
-     (make-type-advanced
-      :feature-id (type-advanced-feature-id ty)
-      :name (type-advanced-name ty)
-      :args (mapcar (lambda (value)
-                      (type-advanced-payload-map (lambda (node) (zonk node subst)) value))
-                    (type-advanced-args ty))
-      :properties (mapcar (lambda (entry)
-                            (cons (car entry)
-                                  (type-advanced-payload-map (lambda (node) (zonk node subst))
-                                                             (cdr entry))))
-                          (type-advanced-properties ty))
-      :evidence (type-advanced-payload-map (lambda (node) (zonk node subst))
-                                           (type-advanced-evidence ty))))
-    (type-handler
-     (make-type-handler :effect (zonk (type-handler-effect ty) subst)
-                        :input  (zonk (type-handler-input  ty) subst)
-                        :output (zonk (type-handler-output ty) subst)))
-    (type-constraint
-     (make-type-constraint :class-name (type-constraint-class-name ty)
-                           :type-arg   (zonk (type-constraint-type-arg ty) subst)))
-    (type-qualified
-     (make-type-qualified
-      :constraints (mapcar (lambda (c) (zonk c subst))
-                           (type-qualified-constraints ty))
-      :body        (zonk (type-qualified-body ty) subst)))
-     (t ty)))
+(defgeneric zonk (ty subst)
+  (:documentation "Eagerly apply SUBST to TY, following variable chains to fixpoints.")
+  (:method ((ty null) subst) (declare (ignore subst)) nil)
+  (:method (ty subst) (declare (ignore subst)) ty))
+
+(defmethod zonk ((ty type-var) subst)
+  (let ((link (type-var-link ty)))
+    (if link
+        (let ((resolved (zonk link subst)))
+          (setf (type-var-link ty) resolved)
+          resolved)
+        (multiple-value-bind (bound found-p) (subst-lookup ty subst)
+          (if found-p
+              (let ((resolved (zonk bound subst)))
+                (setf (type-var-link ty) resolved)
+                resolved)
+              ty)))))
+
+(defmethod zonk ((ty type-rigid) subst)
+  (declare (ignore subst))
+  ty)
+
+(defmethod zonk ((ty type-arrow) subst)
+  (make-type-arrow-raw
+   :params  (mapcar (lambda (p) (zonk p subst)) (type-arrow-params ty))
+   :return  (zonk (type-arrow-return ty) subst)
+   :effects (when (type-arrow-effects ty) (zonk (type-arrow-effects ty) subst))
+   :mult    (type-arrow-mult ty)))
+
+(defmethod zonk ((ty type-product) subst)
+  (make-type-product :elems (mapcar (lambda (e) (zonk e subst)) (type-product-elems ty))))
+
+(defmethod zonk ((ty type-record) subst)
+  (make-type-record
+   :fields  (mapcar (lambda (f) (cons (car f) (zonk (cdr f) subst)))
+                    (type-record-fields ty))
+   :row-var (when (type-record-row-var ty) (zonk (type-record-row-var ty) subst))))
+
+(defmethod zonk ((ty type-variant) subst)
+  (make-type-variant
+   :cases   (mapcar (lambda (c) (cons (car c) (zonk (cdr c) subst)))
+                    (type-variant-cases ty))
+   :row-var (when (type-variant-row-var ty) (zonk (type-variant-row-var ty) subst))))
+
+(defmethod zonk ((ty type-union) subst)
+  (make-type-union-raw
+   :types (mapcar (lambda (t0) (zonk t0 subst)) (type-union-types ty))
+   :constructor-name (type-union-constructor-name ty)))
+
+(defmethod zonk ((ty type-intersection) subst)
+  (make-type-intersection-raw
+   :types (mapcar (lambda (t0) (zonk t0 subst)) (type-intersection-types ty))))
+
+(defmethod zonk ((ty type-forall) subst)
+  (make-type-forall :var (type-forall-var ty)
+                    :knd (type-forall-knd ty)
+                    :body (zonk (type-forall-body ty) subst)))
+
+(defmethod zonk ((ty type-exists) subst)
+  (make-type-exists :var (type-exists-var ty)
+                    :knd (type-exists-knd ty)
+                    :body (zonk (type-exists-body ty) subst)))
+
+(defmethod zonk ((ty type-app) subst)
+  (make-type-app :fun (zonk (type-app-fun ty) subst)
+                 :arg (zonk (type-app-arg ty) subst)))
+
+(defmethod zonk ((ty type-lambda) subst)
+  (make-type-lambda :var (type-lambda-var ty)
+                    :knd (type-lambda-knd ty)
+                    :body (zonk (type-lambda-body ty) subst)))
+
+(defmethod zonk ((ty type-mu) subst)
+  (make-type-mu :var (type-mu-var ty)
+                :body (zonk (type-mu-body ty) subst)))
+
+(defmethod zonk ((ty type-refinement) subst)
+  (make-type-refinement :base (zonk (type-refinement-base ty) subst)
+                        :predicate (type-refinement-predicate ty)))
+
+(defmethod zonk ((ty type-linear) subst)
+  (make-type-linear :base (zonk (type-linear-base ty) subst)
+                    :grade (type-linear-grade ty)))
+
+(defmethod zonk ((ty type-capability) subst)
+  (make-type-capability :base (zonk (type-capability-base ty) subst)
+                        :cap  (type-capability-cap ty)))
+
+(defmethod zonk ((ty type-effect-row) subst)
+  (let* ((effects  (mapcar (lambda (e) (zonk e subst)) (type-effect-row-effects ty)))
+         (rv       (type-effect-row-row-var ty))
+         (resolved (when rv (zonk rv subst))))
+    (cond
+      ((null rv) (make-type-effect-row :effects effects :row-var nil))
+      ((type-effect-row-p resolved)
+       ;; Row-var resolved to another row: merge
+       (make-type-effect-row
+        :effects (append effects (type-effect-row-effects resolved))
+        :row-var (type-effect-row-row-var resolved)))
+      (t (make-type-effect-row :effects effects :row-var resolved)))))
+
+(defmethod zonk ((ty type-effect-op) subst)
+  (make-type-effect-op :name (type-effect-op-name ty)
+                       :args (mapcar (lambda (a) (zonk a subst))
+                                      (type-effect-op-args ty))))
+
+(defmethod zonk ((ty type-advanced) subst)
+  (make-type-advanced
+   :feature-id (type-advanced-feature-id ty)
+   :name (type-advanced-name ty)
+   :args (mapcar (lambda (value)
+                   (type-advanced-payload-map (lambda (node) (zonk node subst)) value))
+                 (type-advanced-args ty))
+   :properties (mapcar (lambda (entry)
+                         (cons (car entry)
+                               (type-advanced-payload-map (lambda (node) (zonk node subst))
+                                                          (cdr entry))))
+                       (type-advanced-properties ty))
+   :evidence (type-advanced-payload-map (lambda (node) (zonk node subst))
+                                        (type-advanced-evidence ty))))
+
+(defmethod zonk ((ty type-handler) subst)
+  (make-type-handler :effect (zonk (type-handler-effect ty) subst)
+                     :input  (zonk (type-handler-input  ty) subst)
+                     :output (zonk (type-handler-output ty) subst)))
+
+(defmethod zonk ((ty type-constraint) subst)
+  (make-type-constraint :class-name (type-constraint-class-name ty)
+                        :type-arg   (zonk (type-constraint-type-arg ty) subst)))
+
+(defmethod zonk ((ty type-qualified) subst)
+  (make-type-qualified
+   :constraints (mapcar (lambda (c) (zonk c subst))
+                        (type-qualified-constraints ty))
+   :body        (zonk (type-qualified-body ty) subst)))
 
 (defun zonk-env (env subst)
   "Return a type environment with SUBST eagerly applied to all bindings."

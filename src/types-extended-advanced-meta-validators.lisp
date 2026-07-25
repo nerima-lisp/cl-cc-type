@@ -115,6 +115,60 @@ upcased name) and whose length is at least MIN-LENGTH."
                :test #'string=)
        (>= (length value) min-length)))
 
+(defmacro define-type-advanced-symbol-name-predicate (name kind members doc)
+  "Define NAME as a one-argument predicate documented by DOC that delegates to
+the fixed-member-list helper selected by KIND — :MEMBER for
+%TYPE-ADVANCED-SYMBOL-NAME-MEMBER-P or :HEAD-FORM for
+%TYPE-ADVANCED-HEAD-SYMBOL-FORM-P — checked against MEMBERS."
+  `(defun ,name (value)
+     ,doc
+     ,(ecase kind
+        (:member `(%type-advanced-symbol-name-member-p value ',members))
+        (:head-form `(%type-advanced-head-symbol-form-p value ',members)))))
+
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defparameter *type-advanced-symbol-name-predicate-specs*
+    '((%type-advanced-smt-theory-p        :member
+       ("LIA" "BITVEC" "UF" "ARRAY")
+       "Return T when VALUE names a supported SMT theory.")
+      (%type-advanced-plugin-phase-p      :member
+       ("SOLVE" "REWRITE")
+       "Return T when VALUE names a supported plugin hook phase.")
+      (%type-advanced-mapped-transform-p  :member
+       ("OPTIONAL" "READONLY" "REQUIRED" "PARTIAL"
+        "PICK" "OMIT" "RECORD" "EXCLUDE"
+        "EXTRACT" "NON-NULLABLE")
+       "Return T when VALUE names a supported mapped-type transform.")
+      (%type-advanced-encoding-kind-p     :member
+       ("CHURCH" "SCOTT" "PARIGOT")
+       "Return T when VALUE names a supported functional data encoding.")
+      (%type-advanced-equality-mode-p     :member
+       ("INTENSIONAL" "EXTENSIONAL" "OBSERVATIONAL")
+       "Return T when VALUE names a supported equality-checking mode.")
+      (%type-advanced-generator-form-p    :head-form
+       ("ARBITRARY" "ENUM" "FUZZ" "SIZED" "GENERATOR")
+       "Return T when VALUE is a plausible type-directed generator descriptor.")
+      (%type-advanced-pointerish-form-p   :head-form
+       ("POINTER" "PTR" "FOREIGN-POINTER" "C-PTR" "SLOT-REF" "CAR-REF")
+       "Return T when VALUE resembles a typed pointer/reference descriptor.")
+      (%type-advanced-staged-form-p       :head-form
+       ("CODE" "QUOTE" "SPLICE" "RUN")
+       "Return T when VALUE is a plausible code/splice/run descriptor."))
+    "Table of advanced-type one-liner predicates: each entry is (NAME KIND
+MEMBERS DOC), expanded into a DEFUN by DEFINE-TYPE-ADVANCED-SYMBOL-NAME-PREDICATES."))
+
+(defmacro define-type-advanced-symbol-name-predicates ()
+  "Expand every entry of *TYPE-ADVANCED-SYMBOL-NAME-PREDICATE-SPECS* into a
+DEFINE-TYPE-ADVANCED-SYMBOL-NAME-PREDICATE form, generating one DEFUN per
+table row."
+  `(progn
+     ,@(mapcar (lambda (spec)
+                 (destructuring-bind (name kind members doc) spec
+                   `(define-type-advanced-symbol-name-predicate ,name ,kind ,members ,doc)))
+               *type-advanced-symbol-name-predicate-specs*)))
+
+(define-type-advanced-symbol-name-predicates)
+
 (defun %type-advanced-boolean-value-p (value)
   "Return T when VALUE is an explicit boolean."
   (or (null value)
@@ -165,11 +219,6 @@ upcased name) and whose length is at least MIN-LENGTH."
           '(:quote :splice :run)
           :test #'eq))
 
-(defun %type-advanced-generator-form-p (value)
-  "Return T when VALUE is a plausible type-directed generator descriptor."
-  (%type-advanced-head-symbol-form-p
-   value '("ARBITRARY" "ENUM" "FUZZ" "SIZED" "GENERATOR")))
-
 (defun %type-advanced-fingerprint-p (value)
   "Return T when VALUE is a plausible interface fingerprint token."
   (or (and (stringp value) (> (length value) 0))
@@ -181,38 +230,10 @@ upcased name) and whose length is at least MIN-LENGTH."
   (or (%type-advanced-symbol-name-member-p value '("Z3" "CVC5"))
       (not (null (lookup-smt-solver value)))))
 
-(defun %type-advanced-smt-theory-p (value)
-  "Return T when VALUE names a supported SMT theory."
-  (%type-advanced-symbol-name-member-p value '("LIA" "BITVEC" "UF" "ARRAY")))
-
-(defun %type-advanced-plugin-phase-p (value)
-  "Return T when VALUE names a supported plugin hook phase."
-  (%type-advanced-symbol-name-member-p value '("SOLVE" "REWRITE")))
-
 (defun %type-advanced-synthesis-strategy-p (value)
   "Return T when VALUE names a supported synthesis strategy."
   (or (%type-advanced-symbol-name-member-p value '("ENUMERATIVE" "REFINEMENT" "PROOF-SEARCH"))
       (not (null (lookup-type-synthesis-strategy value)))))
-
-(defun %type-advanced-mapped-transform-p (value)
-  "Return T when VALUE names a supported mapped-type transform."
-  (%type-advanced-symbol-name-member-p value
-                                       '("OPTIONAL" "READONLY" "REQUIRED" "PARTIAL"
-                                         "PICK" "OMIT" "RECORD" "EXCLUDE"
-                                         "EXTRACT" "NON-NULLABLE")))
-
-(defun %type-advanced-encoding-kind-p (value)
-  "Return T when VALUE names a supported functional data encoding."
-  (%type-advanced-symbol-name-member-p value '("CHURCH" "SCOTT" "PARIGOT")))
-
-(defun %type-advanced-equality-mode-p (value)
-  "Return T when VALUE names a supported equality-checking mode."
-  (%type-advanced-symbol-name-member-p value '("INTENSIONAL" "EXTENSIONAL" "OBSERVATIONAL")))
-
-(defun %type-advanced-pointerish-form-p (value)
-  "Return T when VALUE resembles a typed pointer/reference descriptor."
-  (%type-advanced-head-symbol-form-p
-   value '("POINTER" "PTR" "FOREIGN-POINTER" "C-PTR" "SLOT-REF" "CAR-REF")))
 
 (defun %type-advanced-effect-label-list-p (value)
   "Return T when VALUE is a non-empty list of unique effect labels."
@@ -229,8 +250,4 @@ upcased name) and whose length is at least MIN-LENGTH."
            ((string= head "TRAVERSAL")
             (>= (length value) 3))
            (t nil)))))
-
-(defun %type-advanced-staged-form-p (value)
-  "Return T when VALUE is a plausible code/splice/run descriptor."
-  (%type-advanced-head-symbol-form-p value '("CODE" "QUOTE" "SPLICE" "RUN")))
 

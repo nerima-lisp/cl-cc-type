@@ -27,11 +27,9 @@
 
 ;;; ─── Conditions ───────────────────────────────────────────────────────────
 
-(define-condition type-parse-error (error)
-  ((message :initarg :message :reader type-parse-error-message)
-   (source  :initarg :source  :initform nil :reader type-parse-error-source))
-  (:report (lambda (c s)
-             (format s "Type parse error: ~A" (type-parse-error-message c)))))
+(define-simple-condition type-parse-error error
+  (message (source nil))
+  "Type parse error: ~A" (type-parse-error-message condition))
 
 (defun type-parse-error (msg &rest args)
   (error 'type-parse-error :message (apply #'format nil msg args)))

@@ -5,164 +5,280 @@
 
 (in-package :cl-cc-type/test)
 
-(defsuite cl-cc-type-serial-suite
-  :description "Serial type-system tests that share fresh-var and registry state"
-  :parent cl-cc-unit-suite
-  :parallel nil)
-
 (defbefore :each (cl-cc-type-serial-suite)
   (cl-cc/type:reset-type-vars!)
   (setf cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
 
-(in-suite cl-cc-type-serial-suite)
-
 ;;; Free Variables Tests
 
-(deftest-each free-vars-primitives
-  "type-free-vars returns nil for primitive types."
-  :cases (("int"    type-int)
-          ("string" type-string))
-  (ty)
-  (assert-null (type-free-vars ty)))
+(progn
+  (it-sequential "free-vars-primitives int"
+    (let ((ty type-int))
+      (declare (ignorable ty))
+      (expect (type-free-vars ty) :to-be-null)))
+  (it-sequential "free-vars-primitives string"
+    (let ((ty type-string))
+      (declare (ignorable ty))
+      (expect (type-free-vars ty) :to-be-null))))
 
-(deftest free-vars-single-var-returns-itself
-  "type-free-vars on a single type-var returns a singleton list containing that var."
+(it-sequential "free-vars-single-var-returns-itself"
   (let* ((v  (fresh-type-var))
          (fv (type-free-vars v)))
-    (assert-= 1 (length fv))
-    (assert-true (type-var-equal-p (first fv) v))))
+    (expect (length fv) :to-equal 1)
+    (expect (type-var-equal-p (first fv) v) :to-be-truthy)))
 
-(deftest free-vars-function-type-returns-param-and-return-vars
-  "type-free-vars on a function type with distinct param and return vars returns 2 free vars."
+(it-sequential "free-vars-function-type-returns-param-and-return-vars"
   (let* ((v1 (fresh-type-var))
          (v2 (fresh-type-var))
          (fn (make-type-arrow-raw :params (list v1) :return v2))
          (fv (type-free-vars fn)))
-    (assert-= 2 (length fv))))
+    (expect (length fv) :to-equal 2)))
 
 ;;; Substitution Tests
 
-(deftest substitution-primitive-unchanged
-  "zonk leaves a primitive type unchanged under any substitution."
-  (assert-eq type-int (zonk type-int (make-substitution))))
+(it-sequential "substitution-primitive-unchanged"
+  (expect (zonk type-int (make-substitution)) :to-be type-int))
 
-(deftest substitution-bound-var-replaced
-  "zonk replaces a type-var with its bound value in the substitution."
+(it-sequential "substitution-bound-var-replaced"
   (let* ((v (fresh-type-var))
          (result (zonk v (subst-extend v type-int (make-substitution)))))
-    (assert-type-equal result type-int)))
+    (expect result :to-be-type-equal-to type-int)))
 
-(deftest substitution-unbound-var-is-identity
-  "zonk returns the original type-var when it has no binding in the substitution."
+(it-sequential "substitution-unbound-var-is-identity"
   (let* ((v (fresh-type-var))
          (result (zonk v (make-substitution))))
-    (assert-true (type-var-equal-p result v))))
+    (expect (type-var-equal-p result v) :to-be-truthy)))
 
-(deftest substitution-through-function-type
-  "Substitution distributes into function type params and return."
+(it-sequential "substitution-through-function-type"
   (let* ((v      (fresh-type-var))
          (fn     (make-type-arrow-raw :params (list v) :return v))
          (result (zonk fn (subst-extend v type-int (make-substitution)))))
-    (assert-type type-arrow result)
-    (assert-type-equal (first (type-arrow-params result)) type-int)
-    (assert-type-equal (type-arrow-return result) type-int)))
+    (expect result :to-be-instance-of 'type-arrow)
+    (expect (first (type-arrow-params result)) :to-be-type-equal-to type-int)
+    (expect (type-arrow-return result) :to-be-type-equal-to type-int)))
 
 ;;; Normalize Type Variables Tests
 
-(deftest normalize-type-variables-canonical
-  "Test that normalize produces canonical variable names."
+(it-sequential "normalize-type-variables-canonical"
   (let* ((v1 (fresh-type-var))
          (v2 (fresh-type-var))
          (fn (make-type-arrow-raw
                             :params (list v1)
                             :return v2))
          (normalized (normalize-type-variables fn)))
-    (assert-type type-arrow normalized)
+    (expect normalized :to-be-instance-of 'type-arrow)
     ;; The param and return should be different canonical variables
     (let ((p (first (type-arrow-params normalized)))
           (r (type-arrow-return normalized)))
-      (assert-type type-var p)
-      (assert-type type-var r)
-      (assert-false (type-var-equal-p p r)))))
+      (expect p :to-be-instance-of 'type-var)
+      (expect r :to-be-instance-of 'type-var)
+      (expect (type-var-equal-p p r) :to-be-falsy))))
 
 ;;; Phase 3: Bidirectional Type Checking Tests
 
-(deftest bidirectional-checking-synthesize-and-check-integer
-  "synthesize infers type-int for 42; check against type-int and +type-unknown+ both return nil subst."
+(it-sequential "bidirectional-checking-synthesize-and-check-integer"
   (let* ((env (type-env-empty))
          (ast (make-ast-int :value 42)))
     (multiple-value-bind (ty _subst) (synthesize ast env)
       (declare (ignore _subst))
-      (assert-true (type-equal-p ty type-int)))
-    (assert-true (null (check ast type-int env)))
-    (assert-true (null (check ast cl-cc/type:+type-unknown+ env)))))
+      (expect (type-equal-p ty type-int) :to-be-truthy))
+    (expect (null (check ast type-int env)) :to-be-truthy)
+    (expect (null (check ast cl-cc/type:+type-unknown+ env)) :to-be-truthy)))
 
-(deftest bidirectional-checking-check-body-verifies-last-form
-  "check-body on [1, 2] against type-int returns nil (last form is int)."
+(it-sequential "bidirectional-checking-check-body-verifies-last-form"
   (let* ((env (type-env-empty))
          (ast1 (make-ast-int :value 1))
          (ast2 (make-ast-int :value 2)))
-    (assert-true (null (check-body (list ast1 ast2) type-int env)))))
+    (expect (null (check-body (list ast1 ast2) type-int env)) :to-be-truthy)))
 
 ;;; Phase 4: Typeclass Tests
 
-(deftest-each typeclass-instance-registration
-  "register-typeclass-instance and has-typeclass-instance-p.
-Each case clears the registry first so sibling cases don't trip the
-'Duplicate typeclass instance' guard when the deftest-each re-runs the
-registration body per case."
-  :cases (("int-registered"     type-int    t)
-          ("string-not-present" type-string nil))
-  (query-type expected-p)
-  (let ((cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
-    (register-typeclass-instance 'num-test type-int (list (cons 'plus #'+)))
-    (if expected-p
-        (assert-true  (has-typeclass-instance-p 'num-test query-type))
-        (assert-false (has-typeclass-instance-p 'num-test query-type)))))
+(progn
+  (it-sequential "typeclass-instance-registration int-registered"
+    (let ((query-type type-int) (expected-p t))
+      (declare (ignorable query-type expected-p))
+      (let ((cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+        (register-typeclass-instance 'num-test type-int (list (cons 'plus #'+)))
+        (if expected-p
+            (expect (has-typeclass-instance-p 'num-test query-type) :to-be-truthy)
+            (expect (has-typeclass-instance-p 'num-test query-type) :to-be-falsy)))))
+  (it-sequential "typeclass-instance-registration string-not-present"
+    (let ((query-type type-string) (expected-p nil))
+      (declare (ignorable query-type expected-p))
+      (let ((cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+        (register-typeclass-instance 'num-test type-int (list (cons 'plus #'+)))
+        (if expected-p
+            (expect (has-typeclass-instance-p 'num-test query-type) :to-be-truthy)
+            (expect (has-typeclass-instance-p 'num-test query-type) :to-be-falsy))))))
 
 ;;; Phase 5: Effect Type Tests
 
 
-(deftest-each effect-row-singleton-cases
-  "Effect row singletons: pure has 0 effects; io has 1 IO effect; custom multi has N effects."
-  :cases (("pure"   +pure-effect-row+  0 nil)
-           ("io"     +io-effect-row+    1 "IO")
-           ("custom" (make-type-effect-row :effects (list (cl-cc/type:make-type-effect-op :name 'state :args nil)
-                                                          (cl-cc/type:make-type-effect-op :name 'error :args nil))
-                                           :row-var nil) 2 nil))
-  (row expected-count expected-name)
-  (assert-true (type-effect-row-p row))
-    (assert-= expected-count (length (type-effect-row-effects row)))
-    (when expected-name
-      (assert-string= expected-name
-                      (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))))))
+(progn
+  (it-sequential "effect-row-singleton-cases pure"
+    (let ((row +pure-effect-row+) (expected-count 0) (expected-name nil))
+      (declare (ignorable row expected-count expected-name))
+      (expect (type-effect-row-p row) :to-be-truthy)
+      (expect (length (type-effect-row-effects row)) :to-equal expected-count)
+      (when expected-name
+        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))) :to-equal expected-name))))
+  (it-sequential "effect-row-singleton-cases io"
+    (let ((row +io-effect-row+) (expected-count 1) (expected-name "IO"))
+      (declare (ignorable row expected-count expected-name))
+      (expect (type-effect-row-p row) :to-be-truthy)
+      (expect (length (type-effect-row-effects row)) :to-equal expected-count)
+      (when expected-name
+        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))) :to-equal expected-name))))
+  (it-sequential "effect-row-singleton-cases custom"
+    (let ((row (make-type-effect-row :effects (list (cl-cc/type:make-type-effect-op :name 'state :args nil)
+                                                      (cl-cc/type:make-type-effect-op :name 'error :args nil))
+                                      :row-var nil))
+          (expected-count 2) (expected-name nil))
+      (declare (ignorable row expected-count expected-name))
+      (expect (type-effect-row-p row) :to-be-truthy)
+      (expect (length (type-effect-row-effects row)) :to-equal expected-count)
+      (when expected-name
+        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))) :to-equal expected-name)))))
 
-(deftest-each effect-row-to-string
-  "type-to-string formats effect rows: pure → '{}'; io-row contains 'IO'."
-  :cases (("pure" +pure-effect-row+ "{}"  nil)
-          ("io"   +io-effect-row+   "IO"  t))
-  (row expected substr-p)
-  (let ((s (type-to-string row)))
-    (if substr-p
-        (assert-true (search expected (string-upcase s)))
-        (assert-string= expected s))))
+(progn
+  (it-sequential "effect-row-to-string pure"
+    (let ((row +pure-effect-row+) (expected "{}") (substr-p nil))
+      (declare (ignorable row expected substr-p))
+      (let ((s (type-to-string row)))
+        (if substr-p
+            (expect (search expected (string-upcase s)) :to-be-truthy)
+            (expect s :to-equal expected)))))
+  (it-sequential "effect-row-to-string io"
+    (let ((row +io-effect-row+) (expected "IO") (substr-p t))
+      (declare (ignorable row expected substr-p))
+      (let ((s (type-to-string row)))
+        (if substr-p
+            (expect (search expected (string-upcase s)) :to-be-truthy)
+            (expect s :to-equal expected))))))
 
+
+;;; ─── Effect Inference Tests (infer-effects / infer-with-effects / check-body-effects) ─
+;;;
+;;; The tests above exercise the effect-row *data structure*. These tests drive
+;;; infer-effects itself (inference-effects.lisp) via directly-built AST nodes.
+
+(progn
+  (it-sequential "infer-effects-pure-ast-nodes"
+    (dolist (ast (list (cl-cc/ast:make-ast-int :value 1)
+                        (cl-cc/ast:make-ast-quote :value 1)
+                        (cl-cc/ast:make-ast-var :name 'x)
+                        (cl-cc/ast:make-ast-binop :op '+
+                                                  :lhs (cl-cc/ast:make-ast-int :value 1)
+                                                  :rhs (cl-cc/ast:make-ast-int :value 2))
+                        (cl-cc/ast:make-ast-lambda :params nil :body nil)))
+      (let ((row (cl-cc/type:infer-effects ast (type-env-empty))))
+        (expect (type-equal-p row +pure-effect-row+) :to-be-truthy))))
+  (it-sequential "infer-effects-print-is-io"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
+                (type-env-empty))))
+      (expect (= (length (type-effect-row-effects row)) 1) :to-equal t)
+      (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row))))
+              :to-equal "IO")))
+  (it-sequential "infer-effects-setq-is-state"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-setq :var 'x :value (cl-cc/ast:make-ast-int :value 1))
+                (type-env-empty))))
+      (expect (= (length (type-effect-row-effects row)) 1) :to-equal t)
+      (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row))))
+              :to-equal "STATE")))
+  (it-sequential "infer-effects-if-unions-cond-then-else"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-if
+                 :cond (cl-cc/ast:make-ast-var :name 'c)
+                 :then (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
+                 :else (cl-cc/ast:make-ast-int :value 2))
+                (type-env-empty))))
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "IO"))
+                    (type-effect-row-effects row))
+              :to-be-truthy)))
+  (it-sequential "infer-effects-let-unions-bindings-and-body"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-let
+                 :bindings (list (cons 'x (cl-cc/ast:make-ast-print
+                                            :expr (cl-cc/ast:make-ast-int :value 1))))
+                 :body (list (cl-cc/ast:make-ast-int :value 2)))
+                (type-env-empty))))
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "IO"))
+                    (type-effect-row-effects row))
+              :to-be-truthy)))
+  (it-sequential "infer-effects-progn-and-block-union-forms"
+    (let ((progn-row (cl-cc/type:infer-effects
+                       (cl-cc/ast:make-ast-progn
+                        :forms (list (cl-cc/ast:make-ast-setq
+                                      :var 'x :value (cl-cc/ast:make-ast-int :value 1))))
+                       (type-env-empty)))
+          (block-row (cl-cc/type:infer-effects
+                      (cl-cc/ast:make-ast-block
+                       :name 'blk
+                       :body (list (cl-cc/ast:make-ast-setq
+                                    :var 'x :value (cl-cc/ast:make-ast-int :value 1))))
+                      (type-env-empty))))
+      (expect (= (length (type-effect-row-effects progn-row)) 1) :to-equal t)
+      (expect (= (length (type-effect-row-effects block-row)) 1) :to-equal t)))
+  (it-sequential "infer-effects-call-uses-registered-effect-signature"
+    (let ((known-row (cl-cc/type:infer-effects
+                       (cl-cc/ast:make-ast-call
+                        :func (cl-cc/ast:make-ast-var :name 'error)
+                        :args (list (cl-cc/ast:make-ast-quote :value "boom")))
+                       (type-env-empty)))
+          (unknown-row (cl-cc/type:infer-effects
+                        (cl-cc/ast:make-ast-call
+                         :func (cl-cc/ast:make-ast-var :name 'a-totally-pure-fn)
+                         :args (list (cl-cc/ast:make-ast-int :value 1)))
+                        (type-env-empty))))
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "ERROR"))
+                    (type-effect-row-effects known-row))
+              :to-be-truthy)
+      (expect (type-equal-p unknown-row +pure-effect-row+) :to-be-truthy)))
+  (it-sequential "infer-effects-fallback-yields-fresh-row-var"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-the :type 'fixnum :value (cl-cc/ast:make-ast-int :value 1))
+                (type-env-empty))))
+      (expect (type-effect-row-p row) :to-be-truthy)
+      (expect (null (type-effect-row-effects row)) :to-be-truthy)
+      (expect (type-var-p (cl-cc/type:type-effect-row-row-var row)) :to-be-truthy)))
+  (it-sequential "infer-with-effects-returns-type-subst-and-effects"
+    (multiple-value-bind (ty subst effects)
+        (cl-cc/type:infer-with-effects
+         (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
+         (type-env-empty))
+      (declare (ignore subst))
+      (expect (type-equal-p ty type-int) :to-be-truthy)
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "IO"))
+                    (type-effect-row-effects effects))
+              :to-be-truthy)))
+  (it-sequential "check-body-effects-accepts-declared-superset-and-rejects-undeclared"
+    (expect (null (cl-cc/type:check-body-effects
+                   (list (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1)))
+                   +io-effect-row+
+                   (type-env-empty)))
+            :to-be-truthy)
+    (signals type-inference-error
+        (cl-cc/type:check-body-effects
+         (list (cl-cc/ast:make-ast-setq :var 'x :value (cl-cc/ast:make-ast-int :value 1)))
+         +pure-effect-row+
+         (type-env-empty)))))
 
 ;;; Phase 6: Rank-N Polymorphism Tests
 
-(deftest rankn-forall-creation-and-equality
-  "make-type-forall creates well-formed forall types; foralls with distinct vars are not equal."
+(it-sequential "rankn-forall-creation-and-equality"
   (let* ((a  (fresh-type-var :name 'a))
          (fn (make-type-arrow (list a) a))
          (fa (make-type-forall :var a :body fn)))
-    (assert-true (type-forall-p fa))
-    (assert-true (type-var-equal-p a (type-forall-var fa)))
-    (assert-true (typep (type-forall-body fa) 'type-arrow))
+    (expect (type-forall-p fa) :to-be-truthy)
+    (expect (type-var-equal-p a (type-forall-var fa)) :to-be-truthy)
+    (expect (typep (type-forall-body fa) 'type-arrow) :to-be-truthy)
     (let ((s (type-to-string fa)))
-      (assert-true (stringp s))
-      (assert-true (search "A" (string-upcase s)))))
+      (expect (stringp s) :to-be-truthy)
+      (expect (search "A" (string-upcase s)) :to-be-truthy)))
   (let* ((a  (fresh-type-var :name 'a))
          (b  (fresh-type-var :name 'b))
          (fa (make-type-forall :var a :body (make-type-arrow (list a) a)))
          (fb (make-type-forall :var b :body (make-type-arrow (list b) b))))
-    (assert-false (type-equal-p fa fb))))
+    (expect (type-equal-p fa fb) :to-be-falsy)))

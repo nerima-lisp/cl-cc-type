@@ -31,18 +31,9 @@ OPERATIONS:  alist of (op-name . type-arrow) — the effect's operations."
 
 ;;; ─── Effect registry ──────────────────────────────────────────────────────
 
-(defvar *effect-registry*
-  (make-hash-table :test #'eq)
-  "Maps effect-name symbol -> effect-def.")
-
-(defun register-effect (name effect-def)
-  "Register EFFECT-DEF under NAME in *effect-registry*."
-  (setf (gethash name *effect-registry*) effect-def)
-  name)
-
-(defun lookup-effect (name)
-  "Look up effect definition by NAME. Returns effect-def or nil."
-  (gethash name *effect-registry*))
+(define-registry effect
+  :test #'eq
+  :documentation "Maps effect-name symbol -> effect-def.")
 
 ;;; ─── Effect signature table ───────────────────────────────────────────────
 ;;; NOTE: *effect-signature-table*, register-effect-signature, and

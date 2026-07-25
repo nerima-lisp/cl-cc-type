@@ -7,7 +7,7 @@
 ;;;;   register-typeclass, lookup-typeclass
 ;;;;   Helper predicates: %typeclass-instance-overlaps-p, %typeclass-default-methods,
 ;;;;     %typeclass-name-string, %merge-default-methods, %typeclass-param-name,
-;;;;     %typeclass-instance-args, %typeclass-instance-arg-at,
+;;;;     %typeclass-instance-args,
 ;;;;     %typeclass-fundep-pairs, %typeclass-fundep-violation-p
 ;;;;
 ;;;; Instance registry and dict-env helpers live here.
@@ -92,9 +92,6 @@ Single-parameter instances use TYPE itself; multi-parameter instances use a type
   (if (type-product-p type)
       (type-product-elems type)
       (list type)))
-
-(defun %typeclass-instance-arg-at (type index)
-  (nth index (%typeclass-instance-args type)))
 
 (defun %typeclass-fundep-pairs (tc-def)
   "Normalize functional dependencies from TC-DEF into ((from...) . (to...)) pairs."

@@ -3,11 +3,11 @@
     "cl-cc-ast": {
       "flake": false,
       "locked": {
-        "lastModified": 1784814404,
-        "narHash": "sha256-011VZBhh0cS6WsxA0tcpK1SV5u7P2k+anWj5FAjWDpU=",
+        "lastModified": 1784816576,
+        "narHash": "sha256-rTqKsjES5FJu8F/63zNMQaHtkHeCfYR33EwKTil7+Qc=",
         "owner": "nerima-lisp",
         "repo": "cl-cc-ast",
-        "rev": "2fe4617a9ad5b30344796a552dddd1a09efecc4a",
+        "rev": "e88efda6430e82bd9e93b9a033f114c88d17cb0a",
         "type": "github"
       },
       "original": {
@@ -19,11 +19,11 @@
     "cl-weave": {
       "flake": false,
       "locked": {
-        "lastModified": 1784453306,
-        "narHash": "sha256-Ff88QPdT2BKHSQF0HHeypPgvG0kQGBQXSilMyX2fMsY=",
+        "lastModified": 1784866842,
+        "narHash": "sha256-uFdqahTn9aTgFYnV8tkY5CLI53EGxSZGXjW6Ky1NgXY=",
         "owner": "nerima-lisp",
         "repo": "cl-weave",
-        "rev": "bf6b7876e08246b78b550642abf7c40a0c469c50",
+        "rev": "7ddc1a283878878a58ec90ab6d4742be86868ba8",
         "type": "github"
       },
       "original": {

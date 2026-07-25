@@ -1,10 +1,9 @@
 ;;;; types-extended-ffi.lisp — FFI type descriptors
 (in-package :cl-cc/type)
 
-(define-condition ffi-validation-error (error)
-  ((detail :initarg :detail :reader ffi-validation-error-detail))
-  (:report (lambda (condition stream)
-             (format stream "Invalid FFI descriptor: ~A" (ffi-validation-error-detail condition)))))
+(define-simple-condition ffi-validation-error error
+  (detail)
+  "Invalid FFI descriptor: ~A" (ffi-validation-error-detail condition))
 
 (defparameter +ffi-scalar-kinds+
   '(:void :char :short :int :long :float :double :string :bool :size-t)

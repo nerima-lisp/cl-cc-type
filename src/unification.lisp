@@ -164,6 +164,53 @@ Handles the same-variable identity case and the occurs check before binding."
       (t (let ((s (%bind-type-var-with-bounds var other subst)))
            (if s (succeed s) (fail)))))))
 
+;;; ─── composite-type unification helpers ──────────────────────────────────
+;;; Each helper below unifies one "shape family" of composite/algebraic types
+;;; (union-vs-plain, union-vs-union, intersection-vs-intersection). type-unify
+;;; dispatches to these so the corresponding cond clause bodies (previously
+;;; several lines each) shrink to a single call; clause guards and ordering
+;;; in type-unify are unchanged, only the bodies moved here verbatim.
+
+(defun %type-unify-union-vs-plain (union-ty other subst member-first-p)
+  "Unify UNION-TY (a type-union) against non-union OTHER by checking whether
+some member of UNION-TY unifies with OTHER. MEMBER-FIRST-P controls the
+argument order passed to TYPE-UNIFY: true mirrors the (type-union-p t1)
+clause (member unified against OTHER as the second argument); false mirrors
+the (type-union-p t2) clause (OTHER unified against member as the second
+argument). On success the ORIGINAL subst is returned, not the substitution
+produced by the successful trial unification."
+  (macrolet ((succeed (s) `(values ,s t))
+             (fail () `(values nil nil)))
+    (if (some (lambda (member)
+                (multiple-value-bind (s ok)
+                    (if member-first-p
+                        (type-unify member other subst)
+                        (type-unify other member subst))
+                  (declare (ignore s))
+                  ok))
+              (type-union-types union-ty))
+        (succeed subst)
+        (fail))))
+
+(defun %type-unify-union-union (t1 t2 subst)
+  "Unify two type-union nodes: sort each side's members canonically
+(order-independent) and unify element-wise."
+  (macrolet ((fail () `(values nil nil)))
+    (let ((types1 (sort (copy-list (type-union-types t1)) #'string< :key #'type-to-string))
+          (types2 (sort (copy-list (type-union-types t2)) #'string< :key #'type-to-string)))
+      (unless (= (length types1) (length types2))
+        (return-from %type-unify-union-union (fail)))
+      (type-unify-lists types1 types2 subst))))
+
+(defun %type-unify-intersection (t1 t2 subst)
+  "Unify two type-intersection nodes element-wise by position."
+  (macrolet ((fail () `(values nil nil)))
+    (let ((types1 (type-intersection-types t1))
+          (types2 (type-intersection-types t2)))
+      (unless (= (length types1) (length types2))
+        (return-from %type-unify-intersection (fail)))
+      (type-unify-lists types1 types2 subst))))
+
 (defun type-unify (t1 t2 &optional (subst (make-substitution)))
   "Unify two type-nodes, returning (values substitution success-p).
 
@@ -237,40 +284,18 @@ Examples:
       ;; One side is a union, other is a plain type — check membership
       ;; (union right / left introduction rules for subtyping-style unification)
       ((and (type-union-p t1) (not (type-union-p t2)))
-       (if (some (lambda (member)
-                   (multiple-value-bind (s ok)
-                       (type-unify member t2 subst)
-                     (declare (ignore s))
-                     ok))
-                 (type-union-types t1))
-           (succeed subst)
-           (fail)))
+       (%type-unify-union-vs-plain t1 t2 subst t))
 
       ((and (type-union-p t2) (not (type-union-p t1)))
-       (if (some (lambda (member)
-                   (multiple-value-bind (s ok)
-                       (type-unify t1 member subst)
-                     (declare (ignore s))
-                     ok))
-                 (type-union-types t2))
-           (succeed subst)
-           (fail)))
+       (%type-unify-union-vs-plain t2 t1 subst nil))
 
       ;; Both are union types — canonical sort for order-independence
       ((and (type-union-p t1) (type-union-p t2))
-       (let ((types1 (sort (copy-list (type-union-types t1)) #'string< :key #'type-to-string))
-             (types2 (sort (copy-list (type-union-types t2)) #'string< :key #'type-to-string)))
-         (unless (= (length types1) (length types2))
-           (return-from type-unify (fail)))
-         (type-unify-lists types1 types2 subst)))
+       (%type-unify-union-union t1 t2 subst))
 
       ;; Both are intersection types
       ((and (type-intersection-p t1) (type-intersection-p t2))
-       (let ((types1 (type-intersection-types t1))
-             (types2 (type-intersection-types t2)))
-         (unless (= (length types1) (length types2))
-           (return-from type-unify (fail)))
-         (type-unify-lists types1 types2 subst)))
+       (%type-unify-intersection t1 t2 subst))
 
       ;; Both are type constructors (parametric types)
       ((and (typep t1 'type-constructor) (typep t2 'type-constructor))

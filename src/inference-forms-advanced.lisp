@@ -144,17 +144,6 @@
       type
       (make-type-union (list type-null type) :constructor-name 'option)))
 
-(defun %advanced-call-non-nullable-type (type)
-  "Return TYPE with NULL removed from unions, or TYPE unchanged otherwise."
-  (if (type-union-p type)
-      (let ((members (remove-if (lambda (member) (type-equal-p member type-null))
-                                (type-union-types type))))
-        (cond
-          ((null members) type-null)
-          ((= (length members) 1) (first members))
-          (t (make-type-union members :constructor-name (type-union-constructor-name type)))))
-      type))
-
 (defun %advanced-call-map-record-fields (type field-fn)
   "Map FIELD-FN across record field types, preserving row variables."
   (if (type-record-p type)
@@ -171,7 +160,7 @@
       ((:optional :option)
        (%advanced-call-optional-type base))
       ((:non-nullable :required)
-       (%advanced-call-map-record-fields base #'%advanced-call-non-nullable-type))
+       (%advanced-call-map-record-fields base #'non-nullable-type))
       (:partial
        (%advanced-call-map-record-fields base #'%advanced-call-optional-type))
       (:readonly

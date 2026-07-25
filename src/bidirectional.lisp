@@ -1,4 +1,4 @@
-;;;; packages/type/src/bidirectional.lisp - Bidirectional Type Checking (Phase 3)
+;;;; bidirectional.lisp - Bidirectional Type Checking (Phase 3)
 ;;;
 ;;; Bidirectional type checking separates:
 ;;;   SYNTHESIS (bottom-up): synthesize — given AST, produce type

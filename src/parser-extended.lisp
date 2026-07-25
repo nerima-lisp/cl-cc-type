@@ -77,6 +77,62 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
     (type-parse-error "protocol name must be a symbol, got ~S" spec))
   (make-type-primitive :name spec))
 
+;;; ─── Row forms: data-driven (Record, Variant share parse-row-type by kind) ────
+
+(defvar *row-type-table*
+  '(("RECORD"  . :record)
+    ("VARIANT" . :variant))
+  "Maps row-form syntax name strings to their parse-row-type kind keywords.")
+
+;;; ─── Simple compound forms: data-driven (option, has-slots, protocol, refine, function) ──
+;;; Unlike arrow/quantifier forms, these don't share one uniform argument shape, so each
+;;; builder performs its own arity check and construction; the table only externalizes the
+;;; name → builder mapping so the dispatch cond gets a single generic lookup clause.
+
+(defun %parse-option-form (head args)
+  "Parse (option T) into (or null T) — package-independent nullable sugar."
+  (unless (= (length args) 1)
+    (type-parse-error "option requires exactly 1 type"))
+  (make-type-union (list type-null (parse-type-specifier (first args)))
+                   :constructor-name head))
+
+(defun %parse-has-slots-form (head args)
+  "Parse (has-slots :x (:y fixnum)) into a structural record type."
+  (declare (ignore head))
+  (unless args
+    (type-parse-error "has-slots requires at least one slot requirement"))
+  (make-type-record :fields (%coerce-structural-field-specs args)
+                    :row-var nil))
+
+(defun %parse-protocol-form (head args)
+  "Parse (protocol drawable) into a protocol reference type."
+  (declare (ignore head))
+  (unless (= (length args) 1)
+    (type-parse-error "protocol requires exactly one protocol name"))
+  (make-type-constructor 'protocol
+                         (list (%parse-protocol-name-type (first args)))))
+
+(defun %parse-refine-form (head args)
+  "Parse (Refine T pred) into a refinement type."
+  (declare (ignore head))
+  (unless (= (length args) 2)
+    (type-parse-error "Refine requires (Refine base-type predicate)"))
+  (make-type-refinement :base (parse-type-specifier (first args))
+                        :predicate (%normalize-refinement-predicate (second args))))
+
+(defun %parse-function-type-form (head args)
+  "Parse ANSI CL (function (PARAM...) RETURN) into the internal arrow type."
+  (declare (ignore head))
+  (parse-cl-function-type args))
+
+(defvar *simple-compound-form-table*
+  `(("OPTION"    . ,#'%parse-option-form)
+    ("HAS-SLOTS" . ,#'%parse-has-slots-form)
+    ("PROTOCOL"  . ,#'%parse-protocol-form)
+    ("REFINE"    . ,#'%parse-refine-form)
+    ("FUNCTION"  . ,#'%parse-function-type-form))
+  "Maps compound-type head name strings to (head args) → type-node builder functions.")
+
 (defun %parser-head-name-member-p (head table)
   "Return T when HEAD's symbol-name matches a symbol key in TABLE."
   (and (symbolp head)
@@ -187,12 +243,9 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
   "Handle all symbol-named compound forms using string comparison for package-independence."
   (let ((hn (and (symbolp head) (symbol-name head))))
     (cond
-       ;; (option T) → (or null T) — package-independent nullable sugar
-       ((and hn (string= hn "OPTION"))
-        (unless (= (length args) 1)
-          (type-parse-error "option requires exactly 1 type"))
-        (make-type-union (list type-null (parse-type-specifier (first args)))
-                         :constructor-name head))
+       ;; ─── Simple compound forms (option, has-slots, protocol, refine, function) ──
+       ((and hn (assoc hn *simple-compound-form-table* :test #'string=))
+        (funcall (cdr (assoc hn *simple-compound-form-table* :test #'string=)) head args))
 
        ;; ─── Registered advanced feature families ────────────────────────
        ((and (symbolp head) (type-advanced-head-p head))
@@ -211,20 +264,6 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
                (body (parse-type-specifier (second args))))
           (funcall ctor :var var :body body)))
 
-       ;; ─── Structural shape: (has-slots :x (:y fixnum)) ───────────────
-       ((and hn (string= hn "HAS-SLOTS"))
-        (unless args
-          (type-parse-error "has-slots requires at least one slot requirement"))
-        (make-type-record :fields (%coerce-structural-field-specs args)
-                          :row-var nil))
-
-       ;; ─── Protocol reference: (protocol drawable) ─────────────────────
-       ((and hn (string= hn "PROTOCOL"))
-        (unless (= (length args) 1)
-          (type-parse-error "protocol requires exactly one protocol name"))
-        (make-type-constructor 'protocol
-                               (list (%parse-protocol-name-type (first args)))))
-
         ;; ─── Qualified: (=> (C1 a) ... T) ────────────────────────────────
        ((and hn (string= hn "=>"))
         (unless (>= (length args) 2)
@@ -234,13 +273,6 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
                (body         (parse-type-specifier body-spec))
                (constraints  (mapcar #'parse-constraint-spec cst-specs)))
           (make-type-qualified :constraints constraints :body body)))
-
-      ;; ─── Refinement: (Refine T pred) ─────────────────────────────────
-      ((and hn (string= hn "REFINE"))
-      (unless (= (length args) 2)
-        (type-parse-error "Refine requires (Refine base-type predicate)"))
-      (make-type-refinement :base (parse-type-specifier (first args))
-                            :predicate (%normalize-refinement-predicate (second args))))
 
       ;; ─── Graded modal: (! q T) or (!1 T) or (!ω T) / (!Ω T) ────────
       ;; Match any symbol starting with "!" — handles Unicode-uppercased !ω → !Ω
@@ -257,17 +289,9 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
               (inner-spec (if (string= suffix "") (second args) (first args))))
          (make-type-linear :base (parse-type-specifier inner-spec) :grade grade)))
 
-      ;; ─── Record: (Record (l1 T1) (l2 T2) ... | ρ) ────────────────────
-      ((and hn (string= hn "RECORD"))
-       (parse-row-type args :record))
-
-      ;; ─── Variant: (Variant (L1 T1) (L2 T2) ... | ρ) ─────────────────
-      ((and hn (string= hn "VARIANT"))
-       (parse-row-type args :variant))
-
-      ;; ─── ANSI CL function type: (function (A B ...) R) ───────────────
-      ((and hn (string= hn "FUNCTION"))
-       (parse-cl-function-type args))
+      ;; ─── Row forms: (Record ...)/(Variant ...) share parse-row-type by kind ──
+      ((and hn (assoc hn *row-type-table* :test #'string=))
+       (parse-row-type args (cdr (assoc hn *row-type-table* :test #'string=))))
 
       ;; ─── Type application fallback: (F A) ────────────────────────────
       ((symbolp head)

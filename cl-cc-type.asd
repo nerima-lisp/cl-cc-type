@@ -16,10 +16,14 @@
   :serial t
   :components
    ((:file "package")
+    (:file "registry")
     (:file "kind")
     (:file "multiplicity")
      (:file "types-core")
      (:file "types-extended-concurrency")
+     (:file "types-extended-security-labels")
+     (:file "types-extended-regions")
+     (:file "types-extended-capabilities")
      (:file "types-extended-units")
      (:file "types-extended-routing-types")
      (:file "types-extended-ffi")
@@ -27,6 +31,8 @@
      (:file "types-extended-qtt")
      (:file "types-extended-dependent")
      (:file "types-extended-advanced-meta")
+     (:file "types-extended-advanced-node")
+     (:file "types-extended-advanced-contract")
      (:file "types-extended-advanced-meta-validators")
      (:file "types-extended-advanced-validators")
      (:file "types-extended-advanced-data")
@@ -70,4 +76,12 @@
     (:file "coroutines")
     (:file "simd")
     (:file "routing")
-    (:file "utils")))
+    ;; utils.lisp (FR-1701/1702/1803/1804/3303/3304) split by type family;
+    ;; types-utility depends on %field-name= from types-level-strings, so it
+    ;; must load after it. No other file in this system depends on load
+    ;; order among these five.
+    (:file "types-level-naturals")
+    (:file "types-level-strings")
+    (:file "types-hlist")
+    (:file "utils")
+    (:file "types-utility")))

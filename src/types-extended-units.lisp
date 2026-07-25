@@ -1,13 +1,10 @@
 ;;;; types-extended-units.lisp — Unit definitions, measures, SI registrations
 (in-package :cl-cc/type)
 
-(define-condition unit-mismatch-error (error)
-  ((left :initarg :left :reader unit-mismatch-error-left)
-   (right :initarg :right :reader unit-mismatch-error-right))
-  (:report (lambda (condition stream)
-             (format stream "Incompatible units: ~S and ~S"
-                     (unit-mismatch-error-left condition)
-                     (unit-mismatch-error-right condition)))))
+(define-simple-condition unit-mismatch-error error
+  (left right)
+  "Incompatible units: ~S and ~S"
+  (unit-mismatch-error-left condition) (unit-mismatch-error-right condition))
 
 (defstruct unit-definition
   "A physical unit with a dimension vector and conversion scale to canonical SI."

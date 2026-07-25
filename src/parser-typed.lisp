@@ -1,4 +1,4 @@
-;;;; packages/type/src/parser-typed.lisp — Typed-AST parsing and lambda-list utilities
+;;;; parser-typed.lisp — Typed-AST parsing and lambda-list utilities
 ;;;
 ;;; Contains:
 ;;;   - parse-row-type (Record/Variant row-polymorphic types)

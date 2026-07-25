@@ -52,16 +52,10 @@
   (let ((scheme (gethash (%type-interface-key name) *type-interface-export-registry*)))
     (values scheme (not (null scheme)))))
 
-(defvar *smt-solver-registry* (make-hash-table :test #'equal)
-  "Maps SMT solver names to local request handlers.")
-
-(defun register-smt-solver (name function)
-  "Register FUNCTION as the SMT request handler for NAME."
-  (setf (gethash (%type-interface-key name) *smt-solver-registry*) function))
-
-(defun lookup-smt-solver (name)
-  "Return the SMT solver handler for NAME, if present."
-  (gethash (%type-interface-key name) *smt-solver-registry*))
+(define-registry smt-solver
+  :test #'equal
+  :key-fn #'%type-interface-key
+  :documentation "Maps SMT solver names to local request handlers.")
 
 (defun solve-smt-constraint (constraint solver theory)
   "Dispatch an SMT constraint request through the registered solver handler."
@@ -100,16 +94,10 @@
   (declare (ignore _ast _arg-types _env))
   (list :status :ok :type type-any))
 
-(defvar *type-synthesis-strategy-registry* (make-hash-table :test #'equal)
-  "Maps synthesis strategy names to candidate search handlers.")
-
-(defun register-type-synthesis-strategy (strategy function)
-  "Register FUNCTION as the handler for synthesis STRATEGY."
-  (setf (gethash (%type-interface-key strategy) *type-synthesis-strategy-registry*) function))
-
-(defun lookup-type-synthesis-strategy (strategy)
-  "Return the synthesis handler for STRATEGY, if present."
-  (gethash (%type-interface-key strategy) *type-synthesis-strategy-registry*))
+(define-registry type-synthesis-strategy
+  :test #'equal
+  :key-fn #'%type-interface-key
+  :documentation "Maps synthesis strategy names to candidate search handlers.")
 
 (defun run-type-synthesis (signature strategy fuel)
   "Run type-directed synthesis for SIGNATURE using STRATEGY and FUEL."
