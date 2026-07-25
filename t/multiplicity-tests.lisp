@@ -1,4 +1,4 @@
-;;;; tests/unit/type/multiplicity-tests.lisp — Multiplicity System Tests
+;;;; t/multiplicity-tests.lisp — Multiplicity System Tests
 ;;;;
 ;;;; Tests for src/type/multiplicity.lisp:
 ;;;; multiplicity-p, mult-add (semiring join), mult-mul (semiring scale),

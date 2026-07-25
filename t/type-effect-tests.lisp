@@ -1,4 +1,4 @@
-;;;; tests/type-effect-tests.lisp - Type Effect, Free Variables, Substitution, and Rank-N Tests
+;;;; t/type-effect-tests.lisp - Type Effect, Free Variables, Substitution, and Rank-N Tests
 ;;;;
 ;;;; Covers: free variables, substitution, bidirectional checking, typeclass,
 ;;;; effect types, effect rows, and rank-N polymorphism (forall).

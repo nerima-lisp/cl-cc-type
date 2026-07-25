@@ -1,4 +1,4 @@
-;;;; tests/unit/type/parser-arrow-quantifier-tests.lisp — Arrow & Quantifier Parser Tests
+;;;; t/parser-arrow-quantifier-tests.lisp — Arrow & Quantifier Parser Tests
 ;;;;
 ;;;; Tests for src/type/parser.lisp: arrow multiplicity (->1/->0), bang effects,
 ;;;; forall/exists/mu quantifiers, type-lambda, qualified types (=>), and graded modal (!1/!0/!W).

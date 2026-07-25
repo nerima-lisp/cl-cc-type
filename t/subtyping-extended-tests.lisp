@@ -1,4 +1,4 @@
-;;;; tests/unit/type/subtyping-extended-tests.lisp — Extended Subtyping and Lattice Tests
+;;;; t/subtyping-extended-tests.lisp — Extended Subtyping and Lattice Tests
 ;;;;
 ;;;; Additional coverage for is-subtype-p, type-join, and type-meet beyond the
 ;;;; base cases in subtyping-tests.lisp. Depends on subtyping-tests.lisp being

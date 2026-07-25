@@ -1,4 +1,4 @@
-;;;; tests/unit/type/type-children-tests.lisp — Type Children & Bound-Var Tests
+;;;; t/type-children-tests.lisp — Type Children & Bound-Var Tests
 ;;;;
 ;;;; Tests for type-children and type-bound-var in src/type/representation.lisp.
 ;;;; Verifies the structural data layer that enables data/logic separation

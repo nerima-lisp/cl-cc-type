@@ -1,4 +1,4 @@
-;;;; tests/unit/type/printer-tests.lisp — Type Printer Tests
+;;;; t/printer-tests.lisp — Type Printer Tests
 ;;;;
 ;;;; Tests for src/type/printer.lisp:
 ;;;; type-to-string for all type-node subtypes, unparse-type,

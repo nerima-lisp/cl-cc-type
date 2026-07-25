@@ -28,8 +28,8 @@ Queries the test package's *KNOWN-TEST-NAMES* registry (DEFTEST NAME symbol ->
 description) when present. That registry was a monorepo-only concept built on
 the old deftest shim; this standalone checkout's test suite runs on cl-weave's
 native it-sequential/it-each directly and keeps no such global name registry
-(see cl-cc-type-test.asd's comment excluding type-2026-advanced-registry-tests
-for the same reason). Since there is nothing to query, this permissively
+(see cl-cc-type.asd's comment excluding type-2026-advanced-registry-tests from
+the cl-cc-type/test components, for the same reason). Since there is nothing to query, this permissively
 returns T rather than treating the absent registry as an unmet obligation —
 matching the existing fallback for when the test package itself is absent."
   (and (symbolp anchor)

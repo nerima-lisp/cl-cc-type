@@ -1,4 +1,4 @@
-;;;; tests/unit/type/typeclass-tests.lisp — Typeclass System Tests
+;;;; t/typeclass-tests.lisp — Typeclass System Tests
 ;;;;
 ;;;; Tests for src/type/typeclass.lisp:
 ;;;; typeclass-def, typeclass-instance, registries, dict-env,

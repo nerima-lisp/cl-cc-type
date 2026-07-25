@@ -1,13 +1,15 @@
-;;;; run-coverage.lisp — load :cl-cc-type-test with SB-COVER instrumentation
+;;;; run-coverage.lisp — load "cl-cc-type/test" with SB-COVER instrumentation
 ;;;; active and run the cl-weave suite under :coverage t.
 ;;;;
 ;;;; sb-cover only measures forms compiled while its STORE-COVERAGE-DATA
-;;;; optimize policy is proclaimed, so :cl-cc-type must be force-recompiled
-;;;; here rather than reusing scripts/run-tests.lisp's cached FASLs — mirrors
+;;;; optimize policy is proclaimed, so "cl-cc-type" must be force-recompiled
+;;;; here rather than reusing run-tests.lisp's cached FASLs — mirrors
 ;;;; cl-weave's own CLI (cli-execution.lisp prepare-coverage-compilation).
 ;;;;
-;;;;   CL_CC_AST_ROOT             — cl-cc-ast checkout
-;;;;   CL_CC_TYPE_CL_WEAVE_ROOT   — cl-weave checkout
+;;;; cl-cc-ast and cl-weave come from the inherited CL_SOURCE_REGISTRY, the
+;;;; same way run-tests.lisp finds them. Run from the repository root:
+;;;;
+;;;;   nix develop -c sbcl --noinform --script scripts/run-coverage.lisp
 
 ;; Must run before ASDF's source registry sees a custom :tree entry — once
 ;; that's active, (require :sb-cover) inside cl-weave's own coverage check
@@ -16,22 +18,13 @@
 (require :sb-cover)
 (require :asdf)
 
-(flet ((root (env-var)
-         (let ((v (uiop:getenv env-var)))
-           (unless v
-             (format t "~&FAIL cl-cc-type-coverage: ~A is not set~%" env-var)
-             (finish-output)
-             (sb-ext:exit :code 1))
-           (truename v))))
-  (asdf:initialize-source-registry
-   (list :source-registry
-         (list :tree (truename "."))
-         (list :tree (root "CL_CC_AST_ROOT"))
-         (list :tree (root "CL_CC_TYPE_CL_WEAVE_ROOT"))
-         :inherit-configuration)))
+(asdf:initialize-source-registry
+ (list :source-registry
+       (list :tree (truename "."))
+       :inherit-configuration))
 
 (handler-case
-    (asdf:load-system :cl-weave)
+    (asdf:load-system "cl-weave")
   (error (e)
     (format t "~&FAIL cl-cc-type-coverage load cl-weave: ~a~%" e)
     (finish-output)
@@ -47,8 +40,8 @@
 
 (handler-case
     (progn
-      (asdf:load-system :cl-cc-type :force t)
-      (asdf:load-system :cl-cc-type-test))
+      (asdf:load-system "cl-cc-type" :force t)
+      (asdf:load-system "cl-cc-type/test"))
   (error (e)
     (format t "~&FAIL cl-cc-type-coverage load: ~a~%" e)
     (finish-output)
@@ -63,7 +56,7 @@
              :coverage-output "coverage/cl-cc-type.coverage"
              :coverage-report-directory "coverage/report/"
              :coverage-include-pathnames
-             (list (asdf:system-relative-pathname :cl-cc-type "src/")))
+             (list (asdf:system-relative-pathname "cl-cc-type" "src/")))
     (progn (format t "~&RESULT: ALL PASS (coverage report: coverage/report/index.html)~%")
            (finish-output))
     (progn (format t "~&RESULT: FAIL~%") (finish-output) (sb-ext:exit :code 1)))

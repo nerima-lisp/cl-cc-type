@@ -1,4 +1,4 @@
-;;;; tests/unit/type/types-extended-coverage-tests.lisp
+;;;; t/types-extended-coverage-tests.lisp
 ;;;; Targeted coverage for uncovered branches in:
 ;;;;   src/type/types-extended.lisp — type-free-vars for capability/refinement/handler/gadt-con
 ;;;;   src/type/types-core.lisp — fresh-rigid-var, type-rigid-equal-p

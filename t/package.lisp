@@ -1,4 +1,4 @@
-;;;; tests/package.lisp — cl-cc-type test package.
+;;;; t/package.lisp — cl-cc-type test package.
 ;;;;
 ;;;; Tests call cl-weave's native forms directly: it-sequential, it-each,
 ;;;; expect/expect-not with the built-in matchers plus the two domain

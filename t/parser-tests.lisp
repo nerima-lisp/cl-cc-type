@@ -1,4 +1,4 @@
-;;;; tests/unit/type/parser-tests.lisp — Type Parser Tests (primitive/compound/structural)
+;;;; t/parser-tests.lisp — Type Parser Tests (primitive/compound/structural)
 ;;;;
 ;;;; Tests for src/type/parser.lisp:
 ;;;; parse-type-specifier, parse-primitive-type, parse-compound-type,

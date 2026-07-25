@@ -1,4 +1,4 @@
-;;;; tests/unit/type/constraint-tests.lisp — Constraint Language Tests
+;;;; t/constraint-tests.lisp — Constraint Language Tests
 ;;;;
 ;;;; Tests for src/type/constraint.lisp:
 ;;;; Smart constructors, constraint-free-vars, constraint-substitute.

@@ -1,4 +1,4 @@
-;;;; tests/unit/type/effect-tests.lisp — Algebraic Effect System Tests
+;;;; t/effect-tests.lisp — Algebraic Effect System Tests
 ;;;;
 ;;;; Tests for src/type/effect.lisp:
 ;;;; effect-def, effect registry, effect-row-union, effect-row-subset-p.

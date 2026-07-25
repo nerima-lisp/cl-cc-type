@@ -1,4 +1,4 @@
-;;;; tests/unit/type/representation-tests.lisp — Type Representation Tests
+;;;; t/representation-tests.lisp — Type Representation Tests
 ;;;;
 ;;;; Tests for src/type/representation.lisp:
 ;;;; Advanced type nodes, type-equal-p branches, type-free-vars,
