@@ -1,48 +1,79 @@
 # cl-cc-type
 
-Type system for the [cl-cc](https://github.com/nerima-lisp/cl-cc) Common Lisp
-compiler: kinds, multiplicity, Hindley–Milner inference, type classes, effects,
-row types, subtyping, and exhaustiveness checking (the `:cl-cc/type` package).
+[![CI](https://github.com/nerima-lisp/cl-cc-type/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/nerima-lisp/cl-cc-type/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+[![Documentation](https://img.shields.io/badge/docs-MkDocs%20Material-0a7a5a)](https://nerima-lisp.github.io/cl-cc-type/)
 
-Extracted from the cl-cc monorepo as part of the repository split (see
-`docs/repo-split-design.md` in cl-cc). It depends on
-[cl-cc-ast](https://github.com/nerima-lisp/cl-cc-ast) through its **public API
-only** — AST accessors referenced during constraint collection and inference.
+The type system of the [cl-cc](https://github.com/nerima-lisp/cl-cc) Common
+Lisp compiler, as a standalone SBCL system: kinds, multiplicity,
+Hindley–Milner inference with rank-N and bidirectional checking, type classes,
+algebraic effects, row polymorphism, subtyping, and `typecase` exhaustiveness
+checking. Everything is exported from the `cl-cc/type` package. Its one
+org-internal dependency is [cl-cc-ast](https://github.com/nerima-lisp/cl-cc-ast),
+used through its public API for the AST nodes that inference walks.
 
-## Status
+Full documentation is published at <https://nerima-lisp.github.io/cl-cc-type/>.
+The source for that site lives in [docs/src/](docs/src/).
 
-Extracted and building standalone against cl-cc-ast. The test suite runs on
-[cl-weave](https://github.com/nerima-lisp/cl-weave) (748 tests).
-
-## Usage
+## Quick Start
 
 ```lisp
-;; With cl-cc-ast on the ASDF source registry:
-(asdf:load-system :cl-cc-type)
+(asdf:load-system "cl-cc-type")
+
+(let* ((var (cl-cc/type:fresh-type-var :name 'a))
+       (arrow (cl-cc/type:parse-type-specifier '(function (integer) string))))
+  (multiple-value-bind (subst ok) (cl-cc/type:type-unify var arrow)
+    (and ok (cl-cc/type:unparse-type (cl-cc/type:apply-unification var subst)))))
+;; => (-> FIXNUM STRING)
 ```
+
+## Install
+
+```nix
+# flake.nix
+inputs.cl-cc-type = {
+  url = "github:nerima-lisp/cl-cc-type/v0.1.0";
+  flake = false;
+};
+```
+
+Note the pinned tag. Consumers inside this org must pin a release tag rather
+than follow the default branch. See
+[Installation](https://nerima-lisp.github.io/cl-cc-type/installation/) for the
+`cl-cc-ast` side of the setup and for the non-Nix path.
+
+## Documentation
+
+- [Quick Start](https://nerima-lisp.github.io/cl-cc-type/quick-start/)
+- [Core Concepts](https://nerima-lisp.github.io/cl-cc-type/core-concepts/)
+- [API Reference](https://nerima-lisp.github.io/cl-cc-type/api-reference/)
+- [Development](https://nerima-lisp.github.io/cl-cc-type/development/)
 
 ## Development
 
-```bash
-nix develop            # sbcl dev shell (CL_CC_AST_ROOT preset)
-nix flake check        # compile check + test suite (against cl-cc-ast and cl-weave)
+```sh
+nix develop          # SBCL with CL_SOURCE_REGISTRY already set
+nix run .#test       # run the test suite
+nix flake check      # tests + formatting + docs, the same gate CI uses
+nix fmt              # format Nix sources (treefmt)
 ```
 
-To run these outside Nix, point `CL_CC_AST_ROOT` at a cl-cc-ast checkout and
-`CL_CC_TYPE_CL_WEAVE_ROOT` at a cl-weave checkout:
+Tests live in `t/` and run under
+[cl-weave](https://github.com/nerima-lisp/cl-weave), the org's test framework.
+Six test files from the monorepo are absent because they need the compiler's
+not-yet-extracted parse stage; see
+[Development](https://nerima-lisp.github.io/cl-cc-type/development/#tests-that-did-not-come-across)
+for which and why.
 
-```bash
-CL_CC_AST_ROOT=../cl-cc-ast \
-  sbcl --noinform --script scripts/run-compile-check.lisp
+## Contributing
 
-CL_CC_AST_ROOT=../cl-cc-ast CL_CC_TYPE_CL_WEAVE_ROOT=../cl-weave \
-  sbcl --noinform --script scripts/run-tests.lisp
+See the org-wide [CONTRIBUTING](https://github.com/nerima-lisp/.github/blob/main/CONTRIBUTING.md)
+guide and the [package standard](https://github.com/nerima-lisp/.github/blob/main/PACKAGE_STANDARD.md).
 
-# Coverage report (requires SBCL's sb-cover contrib; writes coverage/report/):
-CL_CC_AST_ROOT=../cl-cc-ast CL_CC_TYPE_CL_WEAVE_ROOT=../cl-weave \
-  sbcl --noinform --script scripts/run-coverage.lisp
-```
+## Support
+
+See [SUPPORT](https://github.com/nerima-lisp/.github/blob/main/SUPPORT.md).
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
