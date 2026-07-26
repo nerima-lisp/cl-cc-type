@@ -3,7 +3,7 @@
 ;;;; Exports the complete 2026 type system API.
 
 (defpackage :cl-cc/type
-  (:use :cl)
+  (:use #:cl)
   ;; Shadow cl:type-error so we can define our own type-error struct
   (:shadow #:type-error #:subtypep
            #:upgraded-array-element-type
