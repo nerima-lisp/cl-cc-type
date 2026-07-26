@@ -1,6 +1,6 @@
-;;;; t/subtyping-tests.lisp — Subtyping Relation Tests
+;;;; t/subtyping-test.lisp — Subtyping Relation Tests
 ;;;;
-;;;; Tests for src/type/subtyping.lisp:
+;;;; Tests for src/subtyping.lisp:
 ;;;; type-name-subtype-p, is-subtype-p, find-common-supertype,
 ;;;; type-join, type-meet.
 

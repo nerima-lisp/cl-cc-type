@@ -71,7 +71,17 @@ names are recorded as comments in the `.asd`: `channels` must precede
 
 ## Adding a test
 
-Tests go in `t/`, are added to the `:components` list of `cl-cc-type/test`, and
+Tests go in `t/` and are named after the source file they cover:
+`src/kind.lisp` is tested by `t/kind-test.lisp`. When one source file has
+several distinct concerns, the concern goes in the middle —
+`t/types-extended-nodes-test.lisp`, `t/types-extended-nodes-children-test.lisp`
+and `t/types-extended-nodes-coverage-test.lisp` all cover
+`src/types-extended-nodes.lisp`. Two files keep a broader name because no
+single source file owns them: `t/type-system-test.lisp` and
+`t/type-system-effect-test.lisp` run across representation, unification and
+inference together.
+
+Every file is added to the `:components` list of `cl-cc-type/test`, and tests
 are written against [cl-weave](https://github.com/nerima-lisp/cl-weave) — the
 org's test framework — using `it-sequential`, `it-each`, `expect`,
 `expect-not` and `signals` directly. Do not introduce FiveAM, parachute, rove

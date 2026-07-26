@@ -1,6 +1,6 @@
-;;;; t/kind-tests.lisp — Kind System Tests
+;;;; t/kind-test.lisp — Kind System Tests
 ;;;;
-;;;; Tests for src/type/kind.lisp:
+;;;; Tests for src/kind.lisp:
 ;;;; kind structs, kind-fun, kind-equal-p, kind-to-string, kind variables.
 
 (in-package :cl-cc-type/test)

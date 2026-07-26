@@ -1,4 +1,4 @@
-;;;; t/exhaustiveness-tests.lisp
+;;;; t/exhaustiveness-test.lisp
 ;;;; FR-1903: Exhaustiveness / Coverage Checking Tests
 ;;;;
 ;;;; Tests for check-typecase-exhaustiveness, check-etypecase-completeness,

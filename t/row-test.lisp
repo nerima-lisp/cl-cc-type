@@ -1,6 +1,6 @@
-;;;; t/row-tests.lisp — Row Polymorphism Tests
+;;;; t/row-test.lisp — Row Polymorphism Tests
 ;;;;
-;;;; Tests for src/type/row.lisp:
+;;;; Tests for src/row.lisp:
 ;;;; row-extend, row-restrict, row-select, row-labels,
 ;;;; row-closed-p, row-open-p,
 ;;;; effect-row-extend, effect-row-restrict, effect-row-member-p.

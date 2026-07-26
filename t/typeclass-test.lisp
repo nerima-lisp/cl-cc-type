@@ -1,6 +1,6 @@
-;;;; t/typeclass-tests.lisp — Typeclass System Tests
+;;;; t/typeclass-test.lisp — Typeclass System Tests
 ;;;;
-;;;; Tests for src/type/typeclass.lisp:
+;;;; Tests for src/typeclass.lisp:
 ;;;; typeclass-def, typeclass-instance, registries, dict-env,
 ;;;; has-typeclass-instance-p, and check-typeclass-constraint.
 

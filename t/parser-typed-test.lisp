@@ -1,6 +1,6 @@
-;;;; t/parser-typed-tests.lisp — Type Parser Tests (Row / Typed Parameters)
+;;;; t/parser-typed-test.lisp — Type Parser Tests (Row / Typed Parameters)
 ;;;;
-;;;; Continuation of parser-tests.lisp:
+;;;; Continuation of parser-test.lisp:
 ;;;; Row types (record/variant), type-app fallback, constraint spec parsing,
 ;;;; lambda-list parsing, typed parameters, typed AST nodes,
 ;;;; looks-like-type-specifier-p.

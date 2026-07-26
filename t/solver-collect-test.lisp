@@ -1,4 +1,4 @@
-;;;; t/solver-collect-tests.lisp — collect-constraints Tests
+;;;; t/solver-collect-test.lisp — collect-constraints Tests
 ;;;;
 ;;;; Full coverage for packages/type/src/solver-collect.lisp.
 ;;;; Each typecase arm is exercised at least once, plus constraint emission

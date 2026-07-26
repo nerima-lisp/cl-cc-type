@@ -1,6 +1,6 @@
-;;;; t/solver-tests.lisp — Constraint Solver Tests
+;;;; t/solver-test.lisp — Constraint Solver Tests
 ;;;;
-;;;; Tests for src/type/solver.lisp:
+;;;; Tests for src/solver.lisp:
 ;;;; solve-constraints and collect-constraints.
 (in-package :cl-cc-type/test)
 

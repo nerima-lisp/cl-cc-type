@@ -1,8 +1,8 @@
-;;;; t/representation-tests.lisp — Type Representation Tests
+;;;; t/types-extended-nodes-test.lisp — Type Representation Tests
 ;;;;
-;;;; Tests for src/type/representation.lisp:
-;;;; Advanced type nodes, type-equal-p branches, type-free-vars,
-;;;; type-env operations, and type-constructor encoding.
+;;;; Tests for src/types-extended-nodes.lisp (advanced type nodes, type-equal-p
+;;;; branches, type-free-vars) and src/types-env.lisp (type-env operations and
+;;;; type-constructor encoding).
 (in-package :cl-cc-type/test)
 
 ;;; ─── type-equal-p: product ─────────────────────────────────────────────────

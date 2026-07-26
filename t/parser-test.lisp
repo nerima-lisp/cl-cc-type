@@ -1,9 +1,9 @@
-;;;; t/parser-tests.lisp — Type Parser Tests (primitive/compound/structural)
+;;;; t/parser-test.lisp — Type Parser Tests (primitive/compound/structural)
 ;;;;
-;;;; Tests for src/type/parser.lisp:
+;;;; Tests for src/parser.lisp:
 ;;;; parse-type-specifier, parse-primitive-type, parse-compound-type,
 ;;;; typed AST nodes, looks-like-type-specifier-p.
-;;;; Arrow/quantifier/modal tests → parser-arrow-quantifier-tests.lisp.
+;;;; Arrow/quantifier/modal tests → parser-arrow-quantifier-test.lisp.
 
 (in-package :cl-cc-type/test)
 

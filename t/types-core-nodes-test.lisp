@@ -1,4 +1,4 @@
-;;;; t/type-2026-nodes-tests.lisp - 2026 Type System Node and Substitution API Tests
+;;;; t/types-core-nodes-test.lisp - 2026 Type System Node and Substitution API Tests
 ;;;;
 ;;;; Covers: 2026 type node extensions (rigid vars, product/variant, exists/mu, HKT app,
 ;;;; record, arrow-mult, linear), ANSI upgrade helpers, and hash-table substitution API.

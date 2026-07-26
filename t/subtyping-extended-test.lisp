@@ -1,7 +1,7 @@
-;;;; t/subtyping-extended-tests.lisp — Extended Subtyping and Lattice Tests
+;;;; t/subtyping-extended-test.lisp — Extended Subtyping and Lattice Tests
 ;;;;
 ;;;; Additional coverage for is-subtype-p, type-join, and type-meet beyond the
-;;;; base cases in subtyping-tests.lisp. Depends on subtyping-tests.lisp being
+;;;; base cases in subtyping-test.lisp. Depends on subtyping-test.lisp being
 ;;;; loaded first (via ASDF :serial t) for the prim helper and suite definition.
 
 (in-package :cl-cc-type/test)

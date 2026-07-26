@@ -1,8 +1,8 @@
-;;;; t/parser-arrow-quantifier-tests.lisp — Arrow & Quantifier Parser Tests
+;;;; t/parser-arrow-quantifier-test.lisp — Arrow & Quantifier Parser Tests
 ;;;;
-;;;; Tests for src/type/parser.lisp: arrow multiplicity (->1/->0), bang effects,
+;;;; Tests for src/parser.lisp: arrow multiplicity (->1/->0), bang effects,
 ;;;; forall/exists/mu quantifiers, type-lambda, qualified types (=>), and graded modal (!1/!0/!W).
-;;;; Suite: parser-suite (defined in parser-tests.lisp).
+;;;; Suite: parser-suite (defined in parser-test.lisp).
 
 (in-package :cl-cc-type/test)
 

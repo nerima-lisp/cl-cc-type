@@ -1,4 +1,4 @@
-;;;; t/substitution-tests.lisp — Substitution & Zonking Tests
+;;;; t/substitution-test.lisp — Substitution & Zonking Tests
 ;;;
 ;;; Tests for substitution data structure, zonk on various type constructors,
 ;;; composition, occurs check, generalize/instantiate, and normalization.

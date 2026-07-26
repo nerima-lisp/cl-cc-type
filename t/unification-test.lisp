@@ -1,4 +1,4 @@
-;;;; t/unification-tests.lisp — Unification Tests
+;;;; t/unification-test.lisp — Unification Tests
 ;;;
 ;;; Tests for type-unify, type-unify-lists, and unify-effect-rows
 ;;; focusing on coverage gaps: product types, intersection types,

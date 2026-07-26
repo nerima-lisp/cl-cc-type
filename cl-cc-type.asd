@@ -122,42 +122,42 @@
   :serial t
   :components
   ((:file "package")
-   (:file "type-tests")
-   (:file "type-effect-tests")
+   (:file "type-system-test")
+   (:file "type-system-effect-test")
    ;; inference-tests, inference-forms-tests, inference-effect-tests,
    ;; type-inference-tests and type-phase-tests are absent, not disabled: they
    ;; build their input ASTs with lower-sexp-to-ast, which is defined in the
    ;; cl-cc monorepo's parse package (packages/parse/src/cl/lower.lisp) and has
    ;; no standalone repository yet. They come back here, or into an integration
    ;; suite, once cl-cc-parse is extracted. See docs/src/development.md.
-   (:file "type-2026-nodes-tests")
+   (:file "types-core-nodes-test")
    ;; type-2026-advanced-registry-tests is likewise absent: it is a monorepo
    ;; governance meta-test that cross-checks docs/type-advanced.md against the
    ;; homegrown framework's cl-cc/test::*known-test-names* registry. Neither
    ;; exists outside the monorepo, and it asserts nothing about type-system
    ;; behaviour, so it did not follow the code here.
-   (:file "type-2026-advanced-semantic-tests")
-   (:file "kind-tests")
-   (:file "multiplicity-tests")
-   (:file "row-tests")
-   (:file "subtyping-tests")
-   (:file "subtyping-extended-tests")
-   (:file "effect-tests")
-   (:file "constraint-tests")
-   (:file "solver-tests")
-   (:file "solver-collect-tests")
-   (:file "representation-tests")
-   (:file "substitution-tests")
-   (:file "unification-tests")
-   (:file "type-children-tests")
-   (:file "types-extended-coverage-tests")
-   (:file "checker-tests")
-   (:file "typeclass-tests")
-   (:file "printer-tests")
-   (:file "parser-tests")
-   (:file "parser-arrow-quantifier-tests")
-   (:file "parser-typed-tests")
-   (:file "exhaustiveness-tests"))
+   (:file "types-extended-advanced-semantics-test")
+   (:file "kind-test")
+   (:file "multiplicity-test")
+   (:file "row-test")
+   (:file "subtyping-test")
+   (:file "subtyping-extended-test")
+   (:file "effect-test")
+   (:file "constraint-test")
+   (:file "solver-test")
+   (:file "solver-collect-test")
+   (:file "types-extended-nodes-test")
+   (:file "substitution-test")
+   (:file "unification-test")
+   (:file "types-extended-nodes-children-test")
+   (:file "types-extended-nodes-coverage-test")
+   (:file "checker-test")
+   (:file "typeclass-test")
+   (:file "printer-test")
+   (:file "parser-test")
+   (:file "parser-arrow-quantifier-test")
+   (:file "parser-typed-test")
+   (:file "exhaustiveness-test"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (unless (uiop:symbol-call :cl-weave

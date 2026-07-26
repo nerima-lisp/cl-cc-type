@@ -1,6 +1,6 @@
-;;;; t/printer-tests.lisp — Type Printer Tests
+;;;; t/printer-test.lisp — Type Printer Tests
 ;;;;
-;;;; Tests for src/type/printer.lisp:
+;;;; Tests for src/printer.lisp:
 ;;;; type-to-string for all type-node subtypes, unparse-type,
 ;;;; list-interleave, looks-like-type-specifier-p.
 ;;;; Coverage goal: every defmethod clause + every data table entry.

@@ -35,6 +35,13 @@ cutting v0.1.0 is a separate step of the org migration.
 
 ### Changed
 
+- Test files are named `t/<source>-test.lisp` after the source file they cover,
+  per `CODING_STANDARD.md`. All 25 used the plural `<subject>-tests.lisp` form;
+  seven also named a subject that is not a file in `src/`, and those were
+  renamed after the source they actually exercise — for example
+  `representation-tests.lisp` → `types-extended-nodes-test.lisp`. No test
+  content changed.
+- `(:use :cl)` in `src/package.lisp` is now `(:use #:cl)`.
 - `cl-cc-type-test.asd` is merged into `cl-cc-type.asd`. The test system is
   renamed from `cl-cc-type-test` to `cl-cc-type/test`, and both `defsystem`
   names are now strings rather than a mix of keywords and strings.

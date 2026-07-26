@@ -1,6 +1,6 @@
-;;;; t/type-children-tests.lisp — Type Children & Bound-Var Tests
+;;;; t/types-extended-nodes-children-test.lisp — Type Children & Bound-Var Tests
 ;;;;
-;;;; Tests for type-children and type-bound-var in src/type/representation.lisp.
+;;;; Tests for type-children and type-bound-var in src/types-extended-nodes.lisp.
 ;;;; Verifies the structural data layer that enables data/logic separation
 ;;;; in type-free-vars, type-occurs-p, and zonk.
 

@@ -1,4 +1,4 @@
-;;;; t/type-tests.lisp - Type System Tests
+;;;; t/type-system-test.lisp - Type System Tests
 ;;;;
 ;;;; Comprehensive tests for the HM type system including:
 ;;;; - Type representation (primitives, variables, functions)

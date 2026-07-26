@@ -1,4 +1,4 @@
-;;;; t/type-2026-advanced-semantic-tests.lisp - 2026 Concrete Advanced Type Semantic Tests
+;;;; t/types-extended-advanced-semantics-test.lisp - 2026 Concrete Advanced Type Semantic Tests
 ;;;;
 ;;;; Covers: concurrency traits, security labels, generics, channels, actors, STM, coroutines,
 ;;;; SIMD, routing, utility types, regions, capabilities, units, FFI, QTT, CIC, termination,
