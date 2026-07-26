@@ -34,7 +34,16 @@ query, this permissively returns T rather than treating the absent registry as
 an unmet obligation —
 matching the existing fallback for when the test package itself is absent."
   (and (symbolp anchor)
-       (let ((test-package (find-package :cl-cc-type/test)))
+       (let ((test-package (or (find-package :cl-cc-type/test)
+                               ;; The cl-cc monorepo loads this system and runs
+                               ;; the governance meta-test that exercises this
+                               ;; predicate, but its test package is :cl-cc/test.
+                               ;; Looking only for :cl-cc-type/test made the
+                               ;; lookup miss there and fall through to the
+                               ;; permissive T below, so an unregistered anchor
+                               ;; counted as available and incomplete evidence
+                               ;; satisfied completion.
+                               (find-package :cl-cc/test))))
          (if test-package
              (let ((test-symbol (find-symbol (symbol-name anchor) test-package))
                    (known-names-symbol (find-symbol "*KNOWN-TEST-NAMES*" test-package)))
