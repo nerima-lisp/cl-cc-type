@@ -51,7 +51,9 @@
                ((or (eq arm t) (eq arm 'otherwise))
                 (when (typecase-arm-subsumed-p arm covered)
                   (push idx unreachable-indices)
-                  (push (format nil "arm ~D (t/otherwise): unreachable — all cases already handled" idx)
+                  (push (format nil
+                                "arm ~D (t/otherwise): unreachable — all cases already handled"
+                                idx)
                         warnings))
                 (setf exhaustive-p t)
                 (push t covered))
@@ -60,7 +62,9 @@
                 (if (typecase-arm-subsumed-p arm covered)
                     (progn
                       (push idx unreachable-indices)
-                      (push (format nil "arm ~D (~A): unreachable — subsumed by earlier arm" idx arm)
+                      (push (format nil
+                                    "arm ~D (~A): unreachable — subsumed by earlier arm"
+                                    idx arm)
                             warnings))
                     (push arm covered)))))
     (values exhaustive-p

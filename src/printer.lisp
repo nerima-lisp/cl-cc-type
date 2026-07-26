@@ -56,8 +56,9 @@
                               (list (car f) (type-to-string (cdr f))))
                             fields)))
     (if row-var
-        (format nil "~A~{~A: ~A~^, ~} | ~A~A" sep-open field-strs (type-to-string row-var) sep-close)
-        (format nil "~A~{~A: ~A~^, ~}~A"       sep-open field-strs sep-close))))
+        (format nil "~A~{~A: ~A~^, ~} | ~A~A"
+                sep-open field-strs (type-to-string row-var) sep-close)
+        (format nil "~A~{~A: ~A~^, ~}~A" sep-open field-strs sep-close))))
 
 (defmethod type-to-string ((ty type-record))
   (%format-row-fields (type-record-fields ty) "{" "}" (type-record-row-var ty)))

@@ -1,4 +1,6 @@
-;;;; types-utility.lisp — FR-3303/3304 TS-style utility types (Readonly, Partial, Pick, Omit, Exclude, Extract)
+;;;; types-utility.lisp
+;;;; FR-3303/3304 TS-style utility types (Readonly, Partial, Pick, Omit,
+;;;; Exclude, Extract)
 
 (in-package :cl-cc/type)
 

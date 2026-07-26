@@ -123,7 +123,9 @@
       (error "Orphan advanced implementation evidence: ~{~A~^, ~}" (sort orphan #'string<)))
     (unless (= (hash-table-count *type-advanced-implementation-evidence-registry*)
                (length feature-ids))
-      (error "Advanced implementation evidence count (~D) does not match feature registry count (~D)"
+      (error (concatenate 'string
+                          "Advanced implementation evidence count (~D) does not "
+                          "match feature registry count (~D)")
              (hash-table-count *type-advanced-implementation-evidence-registry*)
              (length feature-ids)))
     t))

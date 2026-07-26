@@ -194,7 +194,9 @@ Returns (values type substitution) or signals a type-error condition."
   "Build a typed-hole error message with available in-scope variables."
   (let ((bindings (and (type-env-p env) (type-env-bindings env))))
     (if bindings
-        (format nil "Typed hole '_' cannot be inferred; fill the hole with an expression. Available: ~{~A :: ~A~^, ~}."
+        (format nil (concatenate 'string
+                                 "Typed hole '_' cannot be inferred; fill the hole "
+                                 "with an expression. Available: ~{~A :: ~A~^, ~}.")
                 (mapcan (lambda (binding)
                           (let ((name (car binding))
                                 (scheme (cdr binding)))

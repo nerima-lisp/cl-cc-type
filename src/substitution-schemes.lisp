@@ -72,10 +72,13 @@ ENV may be a type-env struct or nil (empty env)."
      (make-type-arrow-raw
       :params (mapcar (lambda (p) (%nv-norm p mapping counter-cell)) (type-arrow-params t0))
       :return (%nv-norm (type-arrow-return t0) mapping counter-cell)
-      :effects (when (type-arrow-effects t0) (%nv-norm (type-arrow-effects t0) mapping counter-cell))
+      :effects (when (type-arrow-effects t0)
+                 (%nv-norm (type-arrow-effects t0) mapping counter-cell))
       :mult (type-arrow-mult t0)))
     (type-product
-     (make-type-product :elems (mapcar (lambda (e) (%nv-norm e mapping counter-cell)) (type-product-elems t0))))
+     (make-type-product
+      :elems (mapcar (lambda (e) (%nv-norm e mapping counter-cell))
+                     (type-product-elems t0))))
     (t t0)))
 
 (defun normalize-type-variables (ty)

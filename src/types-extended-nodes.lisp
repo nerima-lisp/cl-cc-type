@@ -1,4 +1,6 @@
-;;;; types-extended-nodes.lisp — Effect/GADT/constraint structs, singletons, type-equal-p, type-children, type-free-vars
+;;;; types-extended-nodes.lisp
+;;;; Effect/GADT/constraint structs, singletons, type-equal-p, type-children,
+;;;; type-free-vars
 (in-package :cl-cc/type)
 
 ;;; ─── type-effect-row ──────────────────────────────────────────────────────

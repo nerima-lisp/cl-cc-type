@@ -58,7 +58,8 @@
                (cons (intern (string-upcase (symbol-name (car entry))) :keyword)
                      (cdr entry)))
               (t
-               (error 'route-validation-error :detail (format nil "malformed parameter ~S" entry)))))
+               (error 'route-validation-error
+                      :detail (format nil "malformed parameter ~S" entry)))))
           parameters))
 
 (defun route-valid-p (route)
@@ -112,7 +113,10 @@
                        (if (and (> (length segment) 2)
                                 (char= (char segment 0) #\{)
                                 (char= (char segment (1- (length segment))) #\}))
-                           (let* ((name (intern (string-upcase (subseq segment 1 (1- (length segment)))) :keyword))
+                           (let* ((name (intern
+                                         (string-upcase
+                                          (subseq segment 1 (1- (length segment))))
+                                         :keyword))
                                   (expected-type (cdr (assoc name expected :test #'eq)))
                                   (actual (cdr (assoc name value-alist :test #'eq))))
                              (unless (typep actual expected-type)

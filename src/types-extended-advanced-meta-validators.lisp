@@ -1,4 +1,5 @@
-;;;; types-extended-advanced-meta-validators.lisp — Implementation evidence, validation helpers, predicate functions
+;;;; types-extended-advanced-meta-validators.lisp
+;;;; Implementation evidence, validation helpers, predicate functions
 (in-package :cl-cc/type)
 
 (defstruct (type-advanced-implementation-evidence
@@ -29,7 +30,8 @@
      :test-anchors (copy-list test-anchors)
      :summary (or summary ""))))
 
-(defun %type-advanced-implementation-evidence-spec (id modules api-symbols test-anchors &rest options)
+(defun %type-advanced-implementation-evidence-spec (id modules api-symbols test-anchors
+                                                    &rest options)
   "Build a plist specification for implementation evidence covering FEATURE-ID."
   (list* :id id
          :modules modules
@@ -37,7 +39,8 @@
          :test-anchors test-anchors
          options))
 
-(defun %type-advanced-implementation-evidence-specs (ids modules api-symbols test-anchors &rest options)
+(defun %type-advanced-implementation-evidence-specs (ids modules api-symbols test-anchors
+                                                     &rest options)
   "Build implementation evidence plist specs for each id in IDS."
   (mapcar (lambda (id)
             (apply #'%type-advanced-implementation-evidence-spec
@@ -48,7 +51,8 @@
   "Register EVIDENCE and return it."
   (let ((feature-id (type-advanced-implementation-evidence-feature-id evidence)))
     (unless (lookup-type-advanced-feature feature-id)
-      (error "Cannot register implementation evidence for unknown advanced feature id ~A" feature-id))
+      (error "Cannot register implementation evidence for unknown advanced feature id ~A"
+             feature-id))
     (when (gethash feature-id *type-advanced-implementation-evidence-registry*)
       (error "Duplicate advanced implementation evidence for ~A" feature-id))
     (setf (gethash feature-id *type-advanced-implementation-evidence-registry*) evidence)

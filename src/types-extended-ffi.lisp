@@ -94,7 +94,8 @@
     ((typep value 'type-node) t)
     ((atom value) t)
     ((not (consp value)) nil)
-    ((member (string-upcase (symbol-name (first value))) '("C-INT" "C-STRING" "C-PTR") :test #'string=)
+    ((member (string-upcase (symbol-name (first value)))
+             '("C-INT" "C-STRING" "C-PTR") :test #'string=)
      (= (length value) 2))
     ((string= (string-upcase (symbol-name (first value))) "C-CALLBACK")
      (and (= (length value) 2)
@@ -134,7 +135,8 @@
     ((or (symbolp value) (stringp value))
      (let ((kind (%ffi-scalar-kind-from-name (%ffi-symbol-name value))))
        (unless kind
-         (error 'ffi-validation-error :detail (format nil "unknown FFI scalar descriptor ~S" value)))
+         (error 'ffi-validation-error
+                :detail (format nil "unknown FFI scalar descriptor ~S" value)))
        (make-ffi-scalar-type kind)))
     ((consp value)
      (let* ((head (first value))
@@ -143,24 +145,29 @@
          ((and head-name
                (member head-name '("C-PTR" "PTR" "POINTER" "FOREIGN-POINTER") :test #'string=))
           (unless (= (length value) 2)
-            (error 'ffi-validation-error :detail (format nil "pointer descriptor needs pointee: ~S" value)))
+            (error 'ffi-validation-error
+                   :detail (format nil "pointer descriptor needs pointee: ~S" value)))
           (make-ffi-pointer-type (ffi-descriptor-from-form (second value))))
          ((and head-name (string= head-name "C-CALLBACK"))
           (unless (>= (length value) 3)
-            (error 'ffi-validation-error :detail (format nil "callback descriptor needs args and return: ~S" value)))
+            (error 'ffi-validation-error
+                   :detail (format nil "callback descriptor needs args and return: ~S" value)))
           (make-ffi-callback-type (mapcar #'ffi-descriptor-from-form (second value))
                                   (ffi-descriptor-from-form (third value))))
          ((and head-name
                (member head-name '("FOREIGN" "FOREIGN-FUNCTION" "FFI-FUNCTION") :test #'string=))
           (unless (= (length value) 4)
-            (error 'ffi-validation-error :detail (format nil "foreign function descriptor needs name, args, return: ~S" value)))
+            (error 'ffi-validation-error
+                   :detail (format nil "foreign function descriptor needs name, args, return: ~S"
+                                   value)))
           (make-ffi-function-descriptor (second value)
                                         (mapcar #'ffi-descriptor-from-form (third value))
                                         (ffi-descriptor-from-form (fourth value))))
          ((%ffi-scalar-kind-from-name head-name)
           (ffi-descriptor-from-form head))
          (t
-          (error 'ffi-validation-error :detail (format nil "unknown FFI descriptor form ~S" value))))))
+          (error 'ffi-validation-error
+                 :detail (format nil "unknown FFI descriptor form ~S" value))))))
     (t
      (error 'ffi-validation-error :detail (format nil "unsupported FFI descriptor ~S" value)))))
 

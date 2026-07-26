@@ -56,7 +56,9 @@
   (multiple-value-bind (received done-p)
       (funcall (typed-coroutine-handler coroutine) value)
     (setf (typed-coroutine-done-p coroutine) (not (null done-p)))
-    (unless (or done-p (%typed-channel-value-matches-p received (typed-coroutine-receive-type coroutine)))
+    (unless (or done-p
+                (%typed-channel-value-matches-p
+                 received (typed-coroutine-receive-type coroutine)))
       (error "Coroutine yielded ~S which does not match receive type ~S"
              received (typed-coroutine-receive-type coroutine)))
     (values received done-p)))

@@ -110,8 +110,9 @@
   "Validate FR-2406 SMT integration metadata."
   (unless (or (type-advanced-evidence advanced)
               (type-advanced-property-present-p advanced :counterexample))
-    (%type-advanced-invalid advanced
-                            "SMT integration requires either proof evidence or a :counterexample payload")))
+    (%type-advanced-invalid
+     advanced
+     "SMT integration requires either proof evidence or a :counterexample payload")))
 
 (defun %type-advanced-validate-abstract-interpretation (advanced)
   "Validate FR-2804 abstract-interpretation descriptors."
@@ -148,8 +149,9 @@
                    (type-advanced-property advanced :search))))
     (when (and (eq strategy :proof-search)
                (null (type-advanced-evidence advanced)))
-      (%type-advanced-invalid advanced
-                              "proof-search synthesis requires evidence describing the proof search goal"))))
+      (%type-advanced-invalid
+       advanced
+       "proof-search synthesis requires evidence describing the proof search goal"))))
 
 (defun %type-advanced-validate-brand (advanced)
   "Validate FR-3205 branded-type payloads."
@@ -207,9 +209,10 @@
   "Validate FR-3404 extensible-effect descriptors."
   (let ((effects (first (type-advanced-args advanced))))
     (unless (%type-advanced-effect-label-list-p effects)
-      (%type-advanced-invalid advanced
-                              "extensible effects require a non-empty list of unique effect labels, got ~S"
-                              effects))))
+      (%type-advanced-invalid
+       advanced
+       "extensible effects require a non-empty list of unique effect labels, got ~S"
+       effects))))
 
 (defun %type-advanced-validate-type-theory-equality (advanced)
   "Validate FR-3405 equality-mode descriptors."
@@ -220,10 +223,11 @@
     (cond
       ((eq mode :intensional)
        (unless (type-advanced-payload-equal-p left right)
-         (%type-advanced-invalid advanced
-                                 "intensional equality requires computationally identical payloads, got ~S and ~S"
-                                 left
-                                 right)))
+         (%type-advanced-invalid
+          advanced
+          "intensional equality requires computationally identical payloads, got ~S and ~S"
+          left
+          right)))
       ((member mode '(:extensional :observational) :test #'eq)
        (unless (type-advanced-evidence advanced)
          (%type-advanced-invalid advanced

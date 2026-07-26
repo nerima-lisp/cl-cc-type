@@ -1,4 +1,5 @@
-;;;; types-extended-registries.lisp — Type-interface-module, SMT solvers, type checkers, synthesis strategies
+;;;; types-extended-registries.lisp
+;;;; Type-interface-module, SMT solvers, type checkers, synthesis strategies
 (in-package :cl-cc/type)
 
 (defstruct (type-interface-module (:constructor %make-type-interface-module))
@@ -33,10 +34,11 @@
                                    (cons (%type-interface-export-name export)
                                          (%type-interface-export-type export)))
                                  exports))
-         (summary (%make-type-interface-module :name module
-                                               :exports (mapcar #'%type-interface-export-name exports)
-                                               :fingerprint fingerprint
-                                               :exported-types exported-types)))
+         (summary (%make-type-interface-module
+                   :name module
+                   :exports (mapcar #'%type-interface-export-name exports)
+                   :fingerprint fingerprint
+                   :exported-types exported-types)))
     (setf (gethash (%type-interface-key module) *type-interface-registry*) summary)
     (dolist (entry exported-types)
       (setf (gethash (%type-interface-key (car entry)) *type-interface-export-registry*)

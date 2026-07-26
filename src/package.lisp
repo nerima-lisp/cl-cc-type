@@ -115,10 +115,12 @@
     #:generic-u1 #:generic-u1-p #:make-generic-u1
     #:generic-k1 #:generic-k1-p #:make-generic-k1 #:generic-k1-value #:generic-k1-type
     #:generic-m1 #:generic-m1-p #:make-generic-m1 #:generic-m1-meta #:generic-m1-representation
-    #:generic-product #:generic-product-p #:make-generic-product #:generic-product-left #:generic-product-right
+    #:generic-product #:generic-product-p #:make-generic-product
+    #:generic-product-left #:generic-product-right
     #:generic-sum #:generic-sum-p #:make-generic-sum #:generic-sum-tag #:generic-sum-value
     #:generic-instance #:generic-instance-p #:make-generic-instance
-    #:generic-instance-type #:generic-instance-representation #:generic-instance-show #:generic-instance-traverse
+    #:generic-instance-type #:generic-instance-representation
+    #:generic-instance-show #:generic-instance-traverse
     #:*generic-instance-registry*
     #:register-generic-instance #:lookup-generic-instance
     #:generic-representation-of #:generic-show #:generic-transform #:generic-query
@@ -146,7 +148,8 @@
     #:make-generator #:generator-next #:make-coroutine #:coroutine-resume
     #:make-generator-type #:make-coroutine-type
 
-    #:simd-vector #:simd-vector-p #:simd-vector-element-type #:simd-vector-lanes #:simd-vector-values
+    #:simd-vector #:simd-vector-p #:simd-vector-element-type
+    #:simd-vector-lanes #:simd-vector-values
     #:make-simd-vector #:simd-map #:simd-add #:make-simd-type
 
     ;; ─── Type-level utility API (FR-1701/1702/1803/1804/3303/3304/3305) ──
