@@ -86,8 +86,7 @@
           :min-args 1
           :required-properties '(:exports :fingerprint)
            :property-predicates '((:exports . %type-advanced-interface-export-list-p)
-                                 (:fingerprint . %type-advanced-fingerprint-p))
-          :custom-validator '%type-advanced-validate-interface-files)
+                                 (:fingerprint . %type-advanced-fingerprint-p)))
          (%type-advanced-contract-spec
           "FR-2406" :constraints
           :min-args 1

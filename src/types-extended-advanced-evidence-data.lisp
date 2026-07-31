@@ -180,7 +180,7 @@
     (%type-advanced-implementation-evidence-spec
      "FR-2405"
      '("src/types-extended-nodes.lisp")
-     '(parse-type-specifier validate-type-advanced %type-advanced-validate-interface-files)
+     '(parse-type-specifier validate-type-advanced %type-advanced-interface-export-list-p)
      '(advanced-contracts-enforce-constraint-analysis-and-tooling-families
       advanced-feature-implementation-evidence-covers-all-fr-ids))
     (%type-advanced-implementation-evidence-spec

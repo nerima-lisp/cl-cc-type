@@ -204,9 +204,21 @@
   (mapcar #'type-advanced-feature-fr-id
           (list-type-advanced-features)))
 
+(defun %type-advanced-head-designator-p (head)
+  "Return T when HEAD is an acceptable advanced-feature-head designator
+\(a symbol or a string\)."
+  (or (symbolp head) (stringp head)))
+
+(defun %type-advanced-head-key (head)
+  "Return HEAD's uppercased surface-head registry key. Shared normalization
+step for REGISTER-TYPE-ADVANCED-HEAD, TYPE-ADVANCED-FEATURE-ID-FOR-HEAD,
+and TYPE-ADVANCED-HEAD-P; callers that accept arbitrary input should check
+%TYPE-ADVANCED-HEAD-DESIGNATOR-P first."
+  (string-upcase (if (symbolp head) (symbol-name head) head)))
+
 (defun register-type-advanced-head (head feature-id)
   "Associate HEAD with FEATURE-ID in the representative surface-head table."
-  (let* ((key (string-upcase (if (symbolp head) (symbol-name head) head)))
+  (let* ((key (%type-advanced-head-key head))
          (canonical-id (canonicalize-type-advanced-feature-id feature-id))
          (feature (or (lookup-type-advanced-feature canonical-id)
                       (error "Unknown advanced feature id for head ~S: ~A" head canonical-id))))
@@ -216,14 +228,13 @@
 
 (defun type-advanced-feature-id-for-head (head)
   "Return the registered FR id for HEAD, or NIL when HEAD is not known."
-  (when (or (symbolp head) (stringp head))
-    (let ((key (string-upcase (if (symbolp head) (symbol-name head) head))))
-      (gethash key *type-advanced-head-registry*))))
+  (when (%type-advanced-head-designator-p head)
+    (gethash (%type-advanced-head-key head) *type-advanced-head-registry*)))
 
 (defun type-advanced-head-p (head)
   "Return T when HEAD names a registered advanced feature surface form."
-  (and (or (symbolp head) (stringp head))
-       (let ((name (string-upcase (if (symbolp head) (symbol-name head) head))))
+  (and (%type-advanced-head-designator-p head)
+       (let ((name (%type-advanced-head-key head)))
          (or (string= name "ADVANCED")
              (not (null (gethash name *type-advanced-head-registry*)))))))
 

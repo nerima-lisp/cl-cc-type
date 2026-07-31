@@ -127,10 +127,23 @@ even if they happen to be the same object.")
 (defmethod type-equal-p ((t1 type-rigid) (t2 type-rigid))
   (type-rigid-equal-p t1 t2))
 
-(defmethod type-equal-p ((t1 type-arrow) (t2 type-arrow))
-  (and (%type-list-equal-p (type-arrow-params t1) (type-arrow-params t2))
-       (type-equal-p (type-arrow-return t1) (type-arrow-return t2))
-       (eq (type-arrow-mult t1) (type-arrow-mult t2))))
+(defmacro define-type-equal-p (type-class &rest field-specs)
+  "Define a TYPE-EQUAL-P method for TYPE-CLASS that ANDs together one
+comparison per FIELD-SPECS entry. Each entry is (ACCESSOR COMPARATOR); the
+method returns (AND (COMPARATOR (ACCESSOR T1) (ACCESSOR T2)) ...) across all
+entries. Methods whose per-field comparison is not a plain two-argument call
+— TYPE-EFFECT-ROW's row-var, which falls back from TYPE-EQUAL-P to EQ when
+either side is absent — are left hand-written."
+  `(defmethod type-equal-p ((t1 ,type-class) (t2 ,type-class))
+     (and ,@(mapcar (lambda (spec)
+                       (destructuring-bind (accessor comparator) spec
+                         `(,comparator (,accessor t1) (,accessor t2))))
+                     field-specs))))
+
+(define-type-equal-p type-arrow
+  (type-arrow-params %type-list-equal-p)
+  (type-arrow-return type-equal-p)
+  (type-arrow-mult eq))
 
 (defmethod type-equal-p ((t1 type-product) (t2 type-product))
   (%type-list-equal-p (type-product-elems t1) (type-product-elems t2)))
@@ -141,29 +154,29 @@ even if they happen to be the same object.")
 (defmethod type-equal-p ((t1 type-intersection) (t2 type-intersection))
   (%type-list-equal-p (type-intersection-types t1) (type-intersection-types t2)))
 
-(defmethod type-equal-p ((t1 type-forall) (t2 type-forall))
-  (and (type-var-equal-p (type-forall-var t1) (type-forall-var t2))
-       (type-equal-p (type-forall-body t1) (type-forall-body t2))))
+(define-type-equal-p type-forall
+  (type-forall-var type-var-equal-p)
+  (type-forall-body type-equal-p))
 
-(defmethod type-equal-p ((t1 type-exists) (t2 type-exists))
-  (and (type-var-equal-p (type-exists-var t1) (type-exists-var t2))
-       (type-equal-p (type-exists-body t1) (type-exists-body t2))))
+(define-type-equal-p type-exists
+  (type-exists-var type-var-equal-p)
+  (type-exists-body type-equal-p))
 
-(defmethod type-equal-p ((t1 type-app) (t2 type-app))
-  (and (type-equal-p (type-app-fun t1) (type-app-fun t2))
-       (type-equal-p (type-app-arg t1) (type-app-arg t2))))
+(define-type-equal-p type-app
+  (type-app-fun type-equal-p)
+  (type-app-arg type-equal-p))
 
-(defmethod type-equal-p ((t1 type-mu) (t2 type-mu))
-  (and (type-var-equal-p (type-mu-var t1) (type-mu-var t2))
-       (type-equal-p (type-mu-body t1) (type-mu-body t2))))
+(define-type-equal-p type-mu
+  (type-mu-var type-var-equal-p)
+  (type-mu-body type-equal-p))
 
-(defmethod type-equal-p ((t1 type-linear) (t2 type-linear))
-  (and (eq (type-linear-grade t1) (type-linear-grade t2))
-       (type-equal-p (type-linear-base t1) (type-linear-base t2))))
+(define-type-equal-p type-linear
+  (type-linear-grade eq)
+  (type-linear-base type-equal-p))
 
-(defmethod type-equal-p ((t1 type-refinement) (t2 type-refinement))
-  (and (type-equal-p (type-refinement-base t1) (type-refinement-base t2))
-       (equal (type-refinement-predicate t1) (type-refinement-predicate t2))))
+(define-type-equal-p type-refinement
+  (type-refinement-base type-equal-p)
+  (type-refinement-predicate equal))
 
 (defmethod type-equal-p ((t1 type-effect-row) (t2 type-effect-row))
   (and (%type-list-equal-p (type-effect-row-effects t1) (type-effect-row-effects t2))
@@ -171,26 +184,23 @@ even if they happen to be the same object.")
              (rv2 (type-effect-row-row-var t2)))
          (if (and rv1 rv2) (type-equal-p rv1 rv2) (eq rv1 rv2)))))
 
-(defmethod type-equal-p ((t1 type-effect-op) (t2 type-effect-op))
-  (and (eq (type-effect-op-name t1) (type-effect-op-name t2))
-       (%type-list-equal-p (type-effect-op-args t1) (type-effect-op-args t2))))
+(define-type-equal-p type-effect-op
+  (type-effect-op-name eq)
+  (type-effect-op-args %type-list-equal-p))
 
-(defmethod type-equal-p ((t1 type-advanced) (t2 type-advanced))
-  (and (string= (type-advanced-feature-id t1) (type-advanced-feature-id t2))
-       (type-advanced-payload-equal-p (type-advanced-args t1)
-                                      (type-advanced-args t2))
-       (type-advanced-properties-equal-p (type-advanced-properties t1)
-                                          (type-advanced-properties t2))
-       (type-advanced-payload-equal-p (type-advanced-evidence t1)
-                                      (type-advanced-evidence t2))))
+(define-type-equal-p type-advanced
+  (type-advanced-feature-id string=)
+  (type-advanced-args type-advanced-payload-equal-p)
+  (type-advanced-properties type-advanced-properties-equal-p)
+  (type-advanced-evidence type-advanced-payload-equal-p))
 
-(defmethod type-equal-p ((t1 type-constraint) (t2 type-constraint))
-  (and (eq (type-constraint-class-name t1) (type-constraint-class-name t2))
-       (type-equal-p (type-constraint-type-arg t1) (type-constraint-type-arg t2))))
+(define-type-equal-p type-constraint
+  (type-constraint-class-name eq)
+  (type-constraint-type-arg type-equal-p))
 
-(defmethod type-equal-p ((t1 type-qualified) (t2 type-qualified))
-  (and (%type-list-equal-p (type-qualified-constraints t1) (type-qualified-constraints t2))
-       (type-equal-p (type-qualified-body t1) (type-qualified-body t2))))
+(define-type-equal-p type-qualified
+  (type-qualified-constraints %type-list-equal-p)
+  (type-qualified-body type-equal-p))
 
 ;;; ─── Structural traversal helpers ──────────────────────────────────────────
 
@@ -211,14 +221,29 @@ can live elsewhere (free vars, occurs check, zonking, printers, etc.).")
   (:method ((ty null)) nil)
   (:method (ty) nil))
 
+;;; DEFINE-TYPE-CHILDREN covers the common case: a node whose children are
+;;; exactly the contents of one accessor, with no optional fields or extra
+;;; accessors to fold in. LIST-VALUED marks an accessor that already returns
+;;; a list (copied, so a caller can mutate the result without aliasing TY's
+;;; own storage); otherwise the accessor's single result is wrapped in a
+;;; fresh list. Nodes whose children come from more than one accessor, or
+;;; include an optional field (arrow, record, variant, effect-row, advanced,
+;;; handler, gadt-con, qualified), have real per-node logic and stay
+;;; hand-written below, the same boundary DEFINE-REGISTRY draws in
+;;; registry.lisp between a plain accessor and one with work behind it.
+(defmacro define-type-children (type-class field-accessor &key list-valued)
+  `(defmethod type-children ((ty ,type-class))
+     ,(if list-valued
+          `(copy-list (,field-accessor ty))
+          `(list (,field-accessor ty)))))
+
 (defmethod type-children ((ty type-arrow))
   (append (type-arrow-params ty)
           (list (type-arrow-return ty))
           (when (type-arrow-effects ty)
             (list (type-arrow-effects ty)))))
 
-(defmethod type-children ((ty type-product))
-  (copy-list (type-product-elems ty)))
+(define-type-children type-product type-product-elems :list-valued t)
 
 (defmethod type-children ((ty type-record))
   (append (mapcar #'cdr (type-record-fields ty))
@@ -230,43 +255,26 @@ can live elsewhere (free vars, occurs check, zonking, printers, etc.).")
           (when (type-variant-row-var ty)
             (list (type-variant-row-var ty)))))
 
-(defmethod type-children ((ty type-union))
-  (copy-list (type-union-types ty)))
-
-(defmethod type-children ((ty type-intersection))
-  (copy-list (type-intersection-types ty)))
-
-(defmethod type-children ((ty type-forall))
-  (list (type-forall-body ty)))
-
-(defmethod type-children ((ty type-exists))
-  (list (type-exists-body ty)))
+(define-type-children type-union type-union-types :list-valued t)
+(define-type-children type-intersection type-intersection-types :list-valued t)
+(define-type-children type-forall type-forall-body)
+(define-type-children type-exists type-exists-body)
 
 (defmethod type-children ((ty type-app))
   (list (type-app-fun ty) (type-app-arg ty)))
 
-(defmethod type-children ((ty type-lambda))
-  (list (type-lambda-body ty)))
-
-(defmethod type-children ((ty type-mu))
-  (list (type-mu-body ty)))
-
-(defmethod type-children ((ty type-refinement))
-  (list (type-refinement-base ty)))
-
-(defmethod type-children ((ty type-linear))
-  (list (type-linear-base ty)))
-
-(defmethod type-children ((ty type-capability))
-  (list (type-capability-base ty)))
+(define-type-children type-lambda type-lambda-body)
+(define-type-children type-mu type-mu-body)
+(define-type-children type-refinement type-refinement-base)
+(define-type-children type-linear type-linear-base)
+(define-type-children type-capability type-capability-base)
 
 (defmethod type-children ((ty type-effect-row))
   (append (copy-list (type-effect-row-effects ty))
           (when (type-effect-row-row-var ty)
             (list (type-effect-row-row-var ty)))))
 
-(defmethod type-children ((ty type-effect-op))
-  (copy-list (type-effect-op-args ty)))
+(define-type-children type-effect-op type-effect-op-args :list-valued t)
 
 (defmethod type-children ((ty type-advanced))
   (append (mapcan #'type-advanced-payload-children (type-advanced-args ty))
@@ -283,8 +291,7 @@ can live elsewhere (free vars, occurs check, zonking, printers, etc.).")
           (when (type-gadt-con-index-type ty)
             (list (type-gadt-con-index-type ty)))))
 
-(defmethod type-children ((ty type-constraint))
-  (list (type-constraint-type-arg ty)))
+(define-type-children type-constraint type-constraint-type-arg)
 
 (defmethod type-children ((ty type-qualified))
   (append (copy-list (type-qualified-constraints ty))

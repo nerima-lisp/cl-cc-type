@@ -30,9 +30,9 @@
   (let* ((arr (make-type-arrow (list type-int type-string) type-bool))
          (ch  (cl-cc/type:type-children arr)))
     (expect (length ch) :to-equal 3)
-    (expect (type-equal-p type-int (first ch)) :to-be-truthy)
-    (expect (type-equal-p type-string (second ch)) :to-be-truthy)
-    (expect (type-equal-p type-bool (third ch)) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (first ch))
+    (expect type-string :to-be-type-equal-to (second ch))
+    (expect type-bool :to-be-type-equal-to (third ch))))
 
 (it-sequential "type-children-arrow-with-effects-has-effect-row-as-child"
   (let* ((arr (make-type-arrow (list type-int) type-bool :effects +io-effect-row+))
@@ -44,13 +44,15 @@
   (let* ((p  (make-type-product :elems (list type-int type-string type-bool)))
          (ch (cl-cc/type:type-children p)))
     (expect (length ch) :to-equal 3)
-    (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (first ch))))
 
 (progn
   (it-sequential "type-children-binary-collection-types union"
-    (expect (length (cl-cc/type:type-children (make-type-union (list type-int type-string)))) :to-equal 2))
+    (expect (length (cl-cc/type:type-children (make-type-union (list type-int type-string))))
+            :to-equal 2))
   (it-sequential "type-children-binary-collection-types intersection"
-    (expect (length (cl-cc/type:type-children (make-type-intersection (list type-int type-string)))) :to-equal 2)))
+    (expect (length (cl-cc/type:type-children (make-type-intersection (list type-int type-string))))
+            :to-equal 2)))
 
 (progn
   (it-sequential "type-children-record-variants closed"
@@ -61,11 +63,11 @@
            (r  (make-type-record :fields fields :row-var rv))
            (ch (cl-cc/type:type-children r)))
       (expect (length ch) :to-equal 2)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy)
+      (expect type-int :to-be-type-equal-to (first ch))
       (assert-when-present nil
         (expect (type-var-p (second ch)) :to-be-truthy))
       (assert-when-present (not nil)
-        (expect (type-equal-p type-string (second ch)) :to-be-truthy))))
+        (expect type-string :to-be-type-equal-to (second ch)))))
   (it-sequential "type-children-record-variants open"
     (let* ((rv (when t (fresh-type-var :name "rho")))
            (fields (if t
@@ -74,11 +76,11 @@
            (r  (make-type-record :fields fields :row-var rv))
            (ch (cl-cc/type:type-children r)))
       (expect (length ch) :to-equal 2)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy)
+      (expect type-int :to-be-type-equal-to (first ch))
       (assert-when-present t
         (expect (type-var-p (second ch)) :to-be-truthy))
       (assert-when-present (not t)
-        (expect (type-equal-p nil (second ch)) :to-be-truthy)))))
+        (expect nil :to-be-type-equal-to (second ch))))))
 
 (progn
   (it-sequential "type-children-variant-variants closed"
@@ -104,42 +106,46 @@
 
 (progn
   (it-sequential "type-children-quantifier-return-body forall"
-    (let ((ch (cl-cc/type:type-children (make-type-forall :var (fresh-type-var :name "a") :body type-int))))
+    (let ((ch (cl-cc/type:type-children
+               (make-type-forall :var (fresh-type-var :name "a") :body type-int))))
       (expect (length ch) :to-equal 1)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+      (expect type-int :to-be-type-equal-to (first ch))))
   (it-sequential "type-children-quantifier-return-body exists"
-    (let ((ch (cl-cc/type:type-children (make-type-exists :var (fresh-type-var :name "a") :body type-string))))
+    (let ((ch (cl-cc/type:type-children
+               (make-type-exists :var (fresh-type-var :name "a") :body type-string))))
       (expect (length ch) :to-equal 1)
-      (expect (type-equal-p type-string (first ch)) :to-be-truthy))))
+      (expect type-string :to-be-type-equal-to (first ch)))))
 
 (it-sequential "type-children-app"
   (let* ((app (make-type-app :fun type-int :arg type-string))
          (ch  (cl-cc/type:type-children app)))
     (expect (length ch) :to-equal 2)
-    (expect (type-equal-p type-int (first ch)) :to-be-truthy)
-    (expect (type-equal-p type-string (second ch)) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (first ch))
+    (expect type-string :to-be-type-equal-to (second ch))))
 
 (it-sequential "type-children-lambda-and-mu"
   (let ((a (fresh-type-var :name "a")))
     (let ((ch (cl-cc/type:type-children (cl-cc/type:make-type-lambda :var a :body type-int))))
       (expect (length ch) :to-equal 1)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy))
+      (expect type-int :to-be-type-equal-to (first ch)))
     (let ((ch (cl-cc/type:type-children (make-type-mu :var a :body type-int))))
       (expect (length ch) :to-equal 1))))
 
 (progn
   (it-sequential "type-children-wrapper-types refinement"
-    (let ((ch (cl-cc/type:type-children (cl-cc/type:make-type-refinement :base type-int :predicate #'numberp))))
+    (let ((ch (cl-cc/type:type-children
+               (cl-cc/type:make-type-refinement :base type-int :predicate #'numberp))))
       (expect (length ch) :to-equal 1)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+      (expect type-int :to-be-type-equal-to (first ch))))
   (it-sequential "type-children-wrapper-types linear"
     (let ((ch (cl-cc/type:type-children (make-type-linear :base type-int :grade :one))))
       (expect (length ch) :to-equal 1)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+      (expect type-int :to-be-type-equal-to (first ch))))
   (it-sequential "type-children-wrapper-types capability"
-    (let ((ch (cl-cc/type:type-children (cl-cc/type:make-type-capability :base type-int :cap 'read))))
+    (let ((ch (cl-cc/type:type-children
+               (cl-cc/type:make-type-capability :base type-int :cap 'read))))
       (expect (length ch) :to-equal 1)
-      (expect (type-equal-p type-int (first ch)) :to-be-truthy))))
+      (expect type-int :to-be-type-equal-to (first ch)))))
 
 (progn
   (it-sequential "type-children-effect-row-variants closed"
@@ -167,7 +173,7 @@
            (ch  (cl-cc/type:type-children eff)))
       (assert-when-present nil
         (progn (expect (length ch) :to-equal nil)
-               (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+               (expect type-int :to-be-type-equal-to (first ch))))
       (assert-when-present (not nil)
         (expect ch :to-be-null))))
   (it-sequential "type-children-effect-op-cases with-args"
@@ -175,9 +181,21 @@
            (ch  (cl-cc/type:type-children eff)))
       (assert-when-present 1
         (progn (expect (length ch) :to-equal 1)
-               (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+               (expect type-int :to-be-type-equal-to (first ch))))
       (assert-when-present (not 1)
         (expect ch :to-be-null)))))
+
+(it-sequential "type-children-advanced-collects-from-args-properties-evidence"
+  (let* ((adv (cl-cc/type::%make-type-advanced
+                :feature-id "FR-9001"
+                :args (list type-int)
+                :properties (list (cons :k type-string))
+                :evidence type-bool))
+         (ch  (cl-cc/type:type-children adv)))
+    (expect (length ch) :to-equal 3)
+    (expect type-int :to-be-type-equal-to (first ch))
+    (expect type-string :to-be-type-equal-to (second ch))
+    (expect type-bool :to-be-type-equal-to (third ch))))
 
 (it-sequential "type-children-handler-has-three-children"
   (let* ((eff (make-type-effect-op :name 'io :args nil))
@@ -189,33 +207,37 @@
   (let* ((c  (cl-cc/type:make-type-constraint :class-name 'eq :type-arg type-int))
          (ch (cl-cc/type:type-children c)))
     (expect (length ch) :to-equal 1)
-    (expect (type-equal-p type-int (first ch)) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (first ch))))
 
 (it-sequential "type-children-qualified-has-two-children"
   (let* ((c  (cl-cc/type:make-type-constraint :class-name 'eq :type-arg type-int))
          (q  (make-type-qualified :constraints (list c) :body type-string))
          (ch (cl-cc/type:type-children q)))
     (expect (length ch) :to-equal 2)
-    (expect (type-equal-p type-string (second ch)) :to-be-truthy)))
+    (expect type-string :to-be-type-equal-to (second ch))))
 
 ;;; ─── type-bound-var ────────────────────────────────────────────────────────
 
 (progn
   (it-sequential "type-bound-var-binding-types forall"
     (expect (type-var-p (cl-cc/type:type-bound-var
-                          (let ((a (fresh-type-var :name "a"))) (make-type-forall :var a :body type-int))))
+                          (let ((a (fresh-type-var :name "a")))
+                            (make-type-forall :var a :body type-int))))
             :to-be-truthy))
   (it-sequential "type-bound-var-binding-types exists"
     (expect (type-var-p (cl-cc/type:type-bound-var
-                          (let ((a (fresh-type-var :name "a"))) (make-type-exists :var a :body type-int))))
+                          (let ((a (fresh-type-var :name "a")))
+                            (make-type-exists :var a :body type-int))))
             :to-be-truthy))
   (it-sequential "type-bound-var-binding-types lambda"
     (expect (type-var-p (cl-cc/type:type-bound-var
-                          (let ((a (fresh-type-var :name "a"))) (cl-cc/type:make-type-lambda :var a :body type-int))))
+                          (let ((a (fresh-type-var :name "a")))
+                            (cl-cc/type:make-type-lambda :var a :body type-int))))
             :to-be-truthy))
   (it-sequential "type-bound-var-binding-types mu"
     (expect (type-var-p (cl-cc/type:type-bound-var
-                          (let ((a (fresh-type-var :name "a"))) (make-type-mu :var a :body type-int))))
+                          (let ((a (fresh-type-var :name "a")))
+                            (make-type-mu :var a :body type-int))))
             :to-be-truthy)))
 
 (progn

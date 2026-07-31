@@ -17,7 +17,8 @@
 
 (it-sequential "free-vars-capability-primitive-base-yields-nil"
   (expect (cl-cc/type:type-free-vars
-                (cl-cc/type:make-type-capability :base cl-cc/type:type-int :cap 'read)) :to-be-null))
+                (cl-cc/type:make-type-capability :base cl-cc/type:type-int :cap 'read))
+          :to-be-null))
 
 ;;; ─── type-free-vars: refinement ─────────────────────────────────────────────
 
@@ -100,11 +101,11 @@
 
 (it-sequential "type-equal-p-capability-self-identity"
   (let ((c (cl-cc/type:make-type-capability :base cl-cc/type:type-int :cap 'read)))
-    (expect (cl-cc/type:type-equal-p c c) :to-be-truthy)))
+    (expect c :to-be-type-equal-to c)))
 
 (it-sequential "type-equal-p-error-node-always-false"
   (let ((e (cl-cc/type:make-type-error :message "test")))
-    (expect (cl-cc/type:type-equal-p e e) :to-be-falsy)))
+    (expect-not e :to-be-type-equal-to e)))
 
 ;;; ─── +pure-effect-row+ and +io-effect-row+ singletons ───────────────────────
 
@@ -114,6 +115,50 @@
   (let ((effs (cl-cc/type:type-effect-row-effects cl-cc/type:+io-effect-row+)))
     (expect (length effs) :to-equal 1)
     (expect (symbol-name (cl-cc/type:type-effect-op-name (first effs))) :to-equal "IO")))
+
+;;; ─── Default slot values (struct constructors called with no keywords) ─────
+;;; These exercise the defstruct slot-default initforms in
+;;; types-extended-nodes.lisp, which only run when a keyword is omitted from
+;;; the constructor call — every other test in this suite always supplies
+;;; every keyword explicitly.
+
+(it-sequential "default-effect-row-has-nil-effects-and-row-var"
+  (let ((r (cl-cc/type:make-type-effect-row)))
+    (expect (cl-cc/type:type-effect-row-effects r) :to-be-null)
+    (expect (cl-cc/type:type-effect-row-row-var r) :to-be-null)))
+
+(it-sequential "default-effect-op-has-nil-name-and-args"
+  (let ((op (cl-cc/type:make-type-effect-op)))
+    (expect (cl-cc/type:type-effect-op-name op) :to-be-null)
+    (expect (cl-cc/type:type-effect-op-args op) :to-be-null)))
+
+(it-sequential "default-handler-has-nil-effect-input-output"
+  (let ((h (cl-cc/type:make-type-handler)))
+    (expect (cl-cc/type:type-handler-effect h) :to-be-null)
+    (expect (cl-cc/type:type-handler-input h) :to-be-null)
+    (expect (cl-cc/type:type-handler-output h) :to-be-null)
+    (expect (length (cl-cc/type:type-children h)) :to-equal 3)))
+
+(it-sequential "default-gadt-con-has-nil-name-arg-types-index-type"
+  (let ((gc (cl-cc/type:make-type-gadt-con)))
+    (expect (cl-cc/type:type-gadt-con-name gc) :to-be-null)
+    (expect (cl-cc/type:type-gadt-con-arg-types gc) :to-be-null)
+    (expect (cl-cc/type:type-gadt-con-index-type gc) :to-be-null)
+    (expect (cl-cc/type:type-children gc) :to-be-null)))
+
+(it-sequential "default-constraint-has-nil-class-name-and-type-arg"
+  (let ((c (cl-cc/type:make-type-constraint)))
+    (expect (cl-cc/type:type-constraint-class-name c) :to-be-null)
+    (expect (cl-cc/type:type-constraint-type-arg c) :to-be-null)))
+
+(it-sequential "default-error-has-empty-message"
+  (let ((e (cl-cc/type:make-type-error)))
+    (expect (cl-cc/type:type-error-message e) :to-equal "")))
+
+(it-sequential "default-qualified-raw-has-nil-constraints-and-body"
+  (let ((q (cl-cc/type::%make-type-qualified-raw)))
+    (expect (cl-cc/type:type-qualified-constraints q) :to-be-null)
+    (expect (cl-cc/type:type-qualified-body q) :to-be-null)))
 
 ;;; ─── reset-type-vars! ────────────────────────────────────────────────────────
 
