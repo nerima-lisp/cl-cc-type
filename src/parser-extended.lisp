@@ -61,8 +61,8 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
            (bounds (rest spec)))
        (loop while bounds
              do (let ((kind (%bound-operator-kind (first bounds))))
-                  (unless (and kind (consp (rest bounds)))
-                    (type-parse-error "Invalid bounded type variable: ~S" spec))
+                  (parser-require (and kind (consp (rest bounds)))
+                                   "Invalid bounded type variable: ~S" spec)
                   (case kind
                     (:upper (setf upper (parse-type-specifier (second bounds))))
                     (:lower (setf lower (parse-type-specifier (second bounds)))))
@@ -73,8 +73,7 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
 
 (defun %parse-protocol-name-type (spec)
   "Parse a protocol designator into a primitive name wrapper."
-  (unless (symbolp spec)
-    (type-parse-error "protocol name must be a symbol, got ~S" spec))
+  (parser-require (symbolp spec) "protocol name must be a symbol, got ~S" spec)
   (make-type-primitive :name spec))
 
 ;;; ─── Row forms: data-driven (Record, Variant share parse-row-type by kind) ────
@@ -91,32 +90,28 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
 
 (defun %parse-option-form (head args)
   "Parse (option T) into (or null T) — package-independent nullable sugar."
-  (unless (= (length args) 1)
-    (type-parse-error "option requires exactly 1 type"))
+  (parser-require (= (length args) 1) "option requires exactly 1 type")
   (make-type-union (list type-null (parse-type-specifier (first args)))
                    :constructor-name head))
 
 (defun %parse-has-slots-form (head args)
   "Parse (has-slots :x (:y fixnum)) into a structural record type."
   (declare (ignore head))
-  (unless args
-    (type-parse-error "has-slots requires at least one slot requirement"))
+  (parser-require args "has-slots requires at least one slot requirement")
   (make-type-record :fields (%coerce-structural-field-specs args)
                     :row-var nil))
 
 (defun %parse-protocol-form (head args)
   "Parse (protocol drawable) into a protocol reference type."
   (declare (ignore head))
-  (unless (= (length args) 1)
-    (type-parse-error "protocol requires exactly one protocol name"))
+  (parser-require (= (length args) 1) "protocol requires exactly one protocol name")
   (make-type-constructor 'protocol
                          (list (%parse-protocol-name-type (first args)))))
 
 (defun %parse-refine-form (head args)
   "Parse (Refine T pred) into a refinement type."
   (declare (ignore head))
-  (unless (= (length args) 2)
-    (type-parse-error "Refine requires (Refine base-type predicate)"))
+  (parser-require (= (length args) 2) "Refine requires (Refine base-type predicate)")
   (make-type-refinement :base (parse-type-specifier (first args))
                         :predicate (%normalize-refinement-predicate (second args))))
 
@@ -147,8 +142,10 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
            (assoc (symbol-name value)
                   *primitive-type-name-table*
                   :test (lambda (name names) (member name names :test #'string=)))
-           (and (boundp '*type-alias-registry*)
-                (gethash value *type-alias-registry*)))))
+           ;; *TYPE-ALIAS-REGISTRY* is bound by an early DEFVAR in
+           ;; package.lisp (before inference.lisp, which owns its REGISTER-/
+           ;; LOOKUP- API, ever loads), so no BOUNDP guard is needed here.
+           (gethash value *type-alias-registry*))))
 
 (defun %advanced-type-form-head-p (head)
   "Return T when HEAD introduces a parseable type form inside advanced payloads."
@@ -176,14 +173,14 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
     ((%known-advanced-type-atom-p value)
      (parse-type-specifier value))
     ((consp value)
-     (cond
-       ((%advanced-type-form-head-p (car value))
-        (parse-type-specifier value))
-       ((listp value)
-        (mapcar #'%parse-advanced-value value))
-       (t
-        (cons (%parse-advanced-value (car value))
-              (%parse-advanced-value (cdr value))))))
+     ;; LISTP is (OR (CONSP x) (NULL x)), so once CONSP is already known
+     ;; true here, a dotted-pair fallback distinguished by LISTP could
+     ;; never fire -- MAPCAR below covers every reachable case, including
+     ;; a value whose CDR is itself an improper list (MAPCAR would signal
+     ;; a type-error, exactly as it would have inside a LISTP clause).
+     (if (%advanced-type-form-head-p (car value))
+         (parse-type-specifier value)
+         (mapcar #'%parse-advanced-value value)))
     (t value)))
 
 (defun %parse-advanced-items (items)
@@ -195,13 +192,12 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
           do (let ((item (first items)))
                (cond
                  ((eq item :evidence)
-                  (unless (consp (rest items))
-                    (type-parse-error "advanced :evidence requires a value"))
+                  (parser-require (consp (rest items)) "advanced :evidence requires a value")
                   (setf evidence (%parse-advanced-value (second items))
                         items (cddr items)))
                  ((keywordp item)
-                  (unless (consp (rest items))
-                    (type-parse-error "advanced property ~S requires a value" item))
+                  (parser-require (consp (rest items))
+                                   "advanced property ~S requires a value" item)
                   (push (cons item (%parse-advanced-value (second items))) properties)
                   (setf items (cddr items)))
                  (t
@@ -215,11 +211,10 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
          (general-p (and head-name (string= head-name "ADVANCED"))))
     (cond
       (general-p
-       (unless args
-         (type-parse-error "advanced requires a feature id"))
+       (parser-require args "advanced requires a feature id")
        (let ((feature-id (canonicalize-type-advanced-feature-id (first args))))
-         (unless (lookup-type-advanced-feature feature-id)
-           (type-parse-error "Unknown advanced feature id: ~S" (first args)))
+         (parser-require (lookup-type-advanced-feature feature-id)
+                          "Unknown advanced feature id: ~S" (first args))
          (multiple-value-bind (positional properties evidence)
              (%parse-advanced-items (rest args))
            (make-type-advanced :feature-id feature-id
@@ -229,8 +224,7 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
                                :evidence evidence))))
       (t
        (let ((feature-id (type-advanced-feature-id-for-head head)))
-         (unless feature-id
-           (type-parse-error "Unknown advanced surface head: ~S" head))
+         (parser-require feature-id "Unknown advanced surface head: ~S" head)
          (multiple-value-bind (positional properties evidence)
              (%parse-advanced-items args)
            (make-type-advanced :feature-id feature-id
@@ -238,6 +232,21 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
                                :args positional
                                :properties properties
                                :evidence evidence)))))))
+
+(defun %parse-graded-modal-type (hn args)
+  "Parse the graded modal '!' compound form: (! q T), (!1 T), (!0 T), (!ω T)/(!Ω T).
+HN is HEAD's symbol-name, already confirmed by the caller to start with #\!."
+  (let* ((suffix (subseq hn 1))
+         (grade (cond ((string= suffix "1") :one)
+                      ((string= suffix "0") :zero)
+                      ((string= suffix "")  ; plain "!" form: (! multiplicity T)
+                       (case (first args)
+                         ((1 :one one)   :one)
+                         ((0 :zero zero) :zero)
+                         (otherwise      :omega)))
+                      (t :omega)))  ; !ω, !Ω, or any other suffix → unrestricted
+         (inner-spec (if (string= suffix "") (second args) (first args))))
+    (make-type-linear :base (parse-type-specifier inner-spec) :grade grade)))
 
 (defun parse-compound-type-extended (head args)
   "Handle all symbol-named compound forms using string comparison for package-independence."
@@ -257,8 +266,7 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
 
       ;; ─── Binding quantifiers (forall/∀, exists/∃, mu/μ, type-lambda) ──
       ((and hn (%binding-quantifier-ctor hn))
-       (unless (= (length args) 2)
-         (type-parse-error "~A requires (~A var body)" hn (string-downcase hn)))
+       (parser-require (= (length args) 2) "~A requires (~A var body)" hn (string-downcase hn))
         (let* ((ctor (%binding-quantifier-ctor hn))
                (var  (%parse-bounded-quantifier-var (first args)))
                (body (parse-type-specifier (second args))))
@@ -266,8 +274,7 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
 
         ;; ─── Qualified: (=> (C1 a) ... T) ────────────────────────────────
        ((and hn (string= hn "=>"))
-        (unless (>= (length args) 2)
-          (type-parse-error "=> requires (=> constraint... body)"))
+        (parser-require (>= (length args) 2) "=> requires (=> constraint... body)")
         (let* ((body-spec    (car (last args)))
                (cst-specs    (butlast args))
                (body         (parse-type-specifier body-spec))
@@ -277,17 +284,7 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
       ;; ─── Graded modal: (! q T) or (!1 T) or (!ω T) / (!Ω T) ────────
       ;; Match any symbol starting with "!" — handles Unicode-uppercased !ω → !Ω
       ((and hn (> (length hn) 0) (char= (char hn 0) #\!))
-       (let* ((suffix (subseq hn 1))
-              (grade (cond ((string= suffix "1") :one)
-                           ((string= suffix "0") :zero)
-                           ((string= suffix "")  ; plain "!" form: (! multiplicity T)
-                            (case (first args)
-                              ((1 :one one)   :one)
-                              ((0 :zero zero) :zero)
-                              (otherwise      :omega)))
-                           (t :omega)))  ; !ω, !Ω, or any other suffix → unrestricted
-              (inner-spec (if (string= suffix "") (second args) (first args))))
-         (make-type-linear :base (parse-type-specifier inner-spec) :grade grade)))
+       (%parse-graded-modal-type hn args))
 
       ;; ─── Row forms: (Record ...)/(Variant ...) share parse-row-type by kind ──
       ((and hn (assoc hn *row-type-table* :test #'string=))
@@ -317,8 +314,8 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
                         (and slash-pos (1+ slash-pos))))
          (main-args (if eff-start (subseq args 0 (1- eff-start)) args))
          (eff-specs  (when eff-start (subseq args eff-start))))
-    (unless (>= (length main-args) 2)
-      (type-parse-error "Arrow type needs at least one param and a return type"))
+    (parser-require (>= (length main-args) 2)
+                     "Arrow type needs at least one param and a return type")
     (let* ((param-specs (butlast main-args))
            (return-spec (car (last main-args)))
            (params      (mapcar #'parse-type-specifier param-specs))
@@ -330,12 +327,10 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
 
 (defun parse-cl-function-type (args)
   "Parse ANSI CL (function (PARAM...) RETURN) into the internal arrow type."
-  (unless (= (length args) 2)
-    (type-parse-error "function type requires parameter list and return type"))
+  (parser-require (= (length args) 2) "function type requires parameter list and return type")
   (let ((param-specs (first args))
         (return-spec (second args)))
-    (unless (listp param-specs)
-      (type-parse-error "function parameter spec must be a list: ~S" param-specs))
+    (parser-require (listp param-specs) "function parameter spec must be a list: ~S" param-specs)
     (make-type-arrow (mapcar #'parse-type-specifier param-specs)
                      (parse-type-specifier return-spec))))
 

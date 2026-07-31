@@ -27,7 +27,7 @@
 
 ;;; ─── Conditions ───────────────────────────────────────────────────────────
 
-(define-simple-condition type-parse-error error
+(define-simple-condition type-parse-error type-system-error
   (message (source nil))
   "Type parse error: ~A" (type-parse-error-message condition))
 
@@ -69,9 +69,12 @@
                        :test (lambda (s names) (member s names :test #'string=)))))
     (if entry
         (cdr entry)
-         (let ((alias (and (boundp '*type-alias-registry*)
-                           (gethash name *type-alias-registry*))))
-           (if alias
+        ;; *TYPE-ALIAS-REGISTRY* is bound by an early DEFVAR in package.lisp
+        ;; specifically so this file can reference it before inference.lisp
+        ;; (which owns the registry's REGISTER-/LOOKUP- API) loads, so no
+        ;; BOUNDP guard is needed here.
+        (let ((alias (gethash name *type-alias-registry*)))
+          (if alias
               (parse-type-specifier alias)
               (make-type-primitive :name name))))))
 
@@ -97,7 +100,7 @@ Value is the base type name passed to make-type-primitive.")
   "Build a multi-arg compound type from a registered HEAD."
   (let ((ctor (cdr (assoc head *parse-compound-multi-arg-table*))))
     (when ctor
-      (unless args (type-parse-error "~A requires at least one type" head))
+      (parser-require args "~A requires at least one type" head)
       (let ((types (mapcar #'parse-type-specifier args)))
         (when (and (eq head 'and)
                    (%intersection-definitely-uninhabited-p types))
@@ -121,12 +124,10 @@ Value is the base type name passed to make-type-primitive.")
   "Build a type-app node for a registered single-arg HEAD."
   (let ((base (cdr (assoc head *parse-compound-type-app-table*))))
     (when base
-      (unless (case head
-                ((list) (= (length args) 1))
-                ((vector simple-vector array simple-array)
-                 (<= 1 (length args) 2))
-                (otherwise (= (length args) 1)))
-        (type-parse-error "~A requires an element type and optional dimensions" head))
+      (parser-require (if (eq head 'list)
+                          (= (length args) 1)
+                          (<= 1 (length args) 2))
+                       "~A requires an element type and optional dimensions" head)
       (make-type-app :fun (make-type-primitive :name base)
                       :arg (parse-type-specifier (first args))))))
 
@@ -141,23 +142,20 @@ Value is the base type name passed to make-type-primitive.")
   (let ((name (and (symbolp head) (symbol-name head))))
     (cond
       ((and name (member name '("UNSIGNED-BYTE" "SIGNED-BYTE") :test #'string=))
-       (unless (<= (length args) 1)
-         (type-parse-error "~A accepts at most one size bound" head))
+       (parser-require (<= (length args) 1) "~A accepts at most one size bound" head)
        (when (and args (not (%type-bound-designator-p (first args))))
          (type-parse-error "~A size must be an integer or *: ~S" head (first args)))
        type-int)
       ((and name (string= name "MOD"))
-       (unless (= (length args) 1)
-         (type-parse-error "mod requires exactly one upper bound"))
-       (unless (%type-bound-designator-p (first args))
-         (type-parse-error "mod bound must be an integer or *: ~S" (first args)))
+       (parser-require (= (length args) 1) "mod requires exactly one upper bound")
+       (parser-require (%type-bound-designator-p (first args))
+                        "mod bound must be an integer or *: ~S" (first args))
        type-int)
       ((and name (string= name "INTEGER"))
-       (unless (<= (length args) 2)
-         (type-parse-error "integer accepts at most lower and upper bounds"))
+       (parser-require (<= (length args) 2) "integer accepts at most lower and upper bounds")
        (dolist (bound args)
-         (unless (%type-bound-designator-p bound)
-           (type-parse-error "integer bound must be an integer or *: ~S" bound)))
+         (parser-require (%type-bound-designator-p bound)
+                          "integer bound must be an integer or *: ~S" bound))
        type-int))))
 
 (defun parse-compound-type (spec)
@@ -170,12 +168,12 @@ Value is the base type name passed to make-type-primitive.")
           ;; (values T1 T2 ...) — product/tuple; variadic, distinct from multi-arg table
           ((values)
            (make-type-product :elems (mapcar #'parse-type-specifier args)))
-          ;; (option T) → (or null T) — nullable sugar; constructs union, not type-app
-          ((option)
-           (unless (= (length args) 1)
-             (type-parse-error "option requires exactly 1 type"))
-           (make-type-union (list type-null (parse-type-specifier (first args)))
-                            :constructor-name head))
+          ;; option and every other extended head (has-slots, protocol, refine, arrow,
+          ;; quantifiers, row types, graded modals) are matched by symbol-name in
+          ;; parse-compound-type-extended's tables, not by eql here: HEAD is read in
+          ;; whatever package the caller wrote the spec in, so an eql-based case clause
+          ;; for a non-CL, non-exported symbol like OPTION can never match a caller's
+          ;; own OPTION symbol from a different package.
           (otherwise
            (parse-compound-type-extended head args))))))
 

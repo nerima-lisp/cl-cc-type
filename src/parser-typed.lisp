@@ -9,7 +9,6 @@
 ;;;   - ast-defun-typed defstruct + ast-lambda-typed defstruct
 ;;;   - parse-typed-defun, parse-typed-lambda
 ;;;   - parse-type-specifier-maybe
-;;;   - *lambda-list-keywords*
 ;;;
 ;;; Core type parsing (parse-type-specifier, parse-primitive-type,
 ;;; parse-compound-type, parse-arrow-type, parse-effect-row-spec)
@@ -112,19 +111,22 @@ Returns (values param-names param-types) where untyped params get type-any."
   (source-location nil))
 
 (defun parse-typed-defun (form)
-  "Parse (defun name ((x T) ...) return-type body...) into ast-defun-typed."
+  "Parse (defun name ((x T) ...) return-type body...) into ast-defun-typed.
+RETURN-TYPE may be given either as a bare symbol immediately after the
+lambda list, or via a leading (declare (return-type T)) form in BODY;
+the bare-symbol spelling takes priority if both are somehow present."
   (destructuring-bind (name lambda-list . rest) (cdr form)
     (multiple-value-bind (names types) (parse-lambda-list-with-types lambda-list)
-      (let ((return-type (and (not (null rest))
-                              (not (consp (first rest)))
-                              (not (eq (first rest) 'declare))
-                              (parse-type-specifier-maybe (first rest))))
-            (body (if (and rest (not (null (extract-return-type rest))))
-                      (cdr rest)
-                      rest)))
+      (let* ((declared-return-type (and rest (extract-return-type rest)))
+             (bare-return-type (and (not (null rest))
+                                    (not (consp (first rest)))
+                                    (not (eq (first rest) 'declare))
+                                    (parse-type-specifier-maybe (first rest))))
+             (body (if declared-return-type (cdr rest) rest)))
         (make-ast-defun-typed
          :name name :params names :param-types types
-         :return-type (or return-type type-any) :body body)))))
+         :return-type (or bare-return-type declared-return-type type-any)
+         :body body)))))
 
 (defun parse-typed-lambda (form)
   "Parse (lambda ((x T) ...) body...) into ast-lambda-typed."
@@ -138,10 +140,3 @@ Returns (values param-names param-types) where untyped params get type-any."
   (when (looks-like-type-specifier-p x)
     (handler-case (parse-type-specifier x)
       (type-parse-error () nil))))
-
-;;; ─── Utility ──────────────────────────────────────────────────────────────
-
-(defvar *lambda-list-keywords*
-  '(&optional &rest &key &allow-other-keys &aux)
-  "Lambda list keywords to skip during typed parameter parsing.")
-
