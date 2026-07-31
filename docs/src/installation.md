@@ -11,7 +11,7 @@ tracks `main`, so an upstream push breaks your build without warning.
 
 ```nix
 inputs.cl-cc-type = {
-  url = "github:nerima-lisp/cl-cc-type/v0.1.0";
+  url = "github:nerima-lisp/cl-cc-type/v0.2.0";
   flake = false;
 };
 ```
@@ -26,16 +26,29 @@ Put the fetched trees on the source registry, together with `cl-cc-ast`:
 CL_SOURCE_REGISTRY = "${cl-cc-ast}//:${cl-cc-type}//:${self}//";
 ```
 
-Or build it as a Lisp library and depend on the derivation:
+Or build it as a Lisp library and depend on the derivation, with nixpkgs' own
+builder:
 
 ```nix
 clCcType = pkgs.sbcl.buildASDFSystem {
   pname = "cl-cc-type";
-  version = "0.1.0";
+  version = "0.2.0";
   src = cl-cc-type;
   systems = [ "cl-cc-type" ];
   lispLibs = [ clCcAst ];
 };
+```
+
+Or, since this repository's own `flake.nix` is now built with
+[cl-nix-forge](https://github.com/nerima-lisp/cl-nix-forge), reference the
+package it already publishes instead of rebuilding it — `flake = true` here,
+deliberately unlike the `cl-cc-ast` input above, precisely because there is a
+`packages.default` to take:
+
+```nix
+inputs.cl-cc-type.url = "github:nerima-lisp/cl-cc-type/v0.2.0";
+# ...
+lispDependencies = ctx: [ cl-cc-type.packages.${ctx.system}.default ];
 ```
 
 ## Without Nix

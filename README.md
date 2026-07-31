@@ -32,7 +32,7 @@ The source for that site lives in [docs/src/](docs/src/).
 ```nix
 # flake.nix
 inputs.cl-cc-type = {
-  url = "github:nerima-lisp/cl-cc-type/v0.1.0";
+  url = "github:nerima-lisp/cl-cc-type/v0.2.0";
   flake = false;
 };
 ```
@@ -54,8 +54,9 @@ than follow the default branch. See
 ```sh
 nix develop          # SBCL with CL_SOURCE_REGISTRY already set
 nix run .#test       # run the test suite
-nix flake check      # tests + formatting + docs, the same gate CI uses
+nix flake check      # tests + formatting + docs + paredit lint, the same gate CI uses
 nix fmt              # format Nix sources (treefmt)
+nix build .#coverage # SB-COVER report (result/cover-index.html)
 ```
 
 Tests live in `t/` and run under

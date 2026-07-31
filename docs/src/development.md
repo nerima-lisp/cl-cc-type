@@ -8,15 +8,29 @@ CI runs; if it passes locally it passes in CI, modulo the platform.
 ```sh
 nix develop          # SBCL with CL_SOURCE_REGISTRY already set
 nix run .#test       # run the test suite
-nix flake check      # tests + formatting + docs, the same gate CI uses
+nix flake check      # tests + formatting + docs + paredit lint, the same gate CI uses
 nix fmt              # format Nix sources (treefmt/nixfmt)
 nix build .#docs     # render the documentation site
+nix build .#coverage # SB-COVER report (result/cover-index.html)
 ```
 
 The flake declares two systems, `x86_64-linux` and `aarch64-darwin`. Both are
 verified: the first by the CI runner, the second by running `nix flake check`
 on the development machine. `aarch64-linux` and `x86_64-darwin` are
 deliberately not declared, because nothing checks them.
+
+`flake.nix` itself is one call to
+[cl-nix-forge](https://github.com/nerima-lisp/cl-nix-forge)'s `mkPackageFlake`
+— the org preset that generates the whole standard output table (`packages`,
+`checks`, `apps`, `devShells`, `formatter`, `overlays.default`) from the
+package's own `.asd`, docs directory and dependency list, the same way
+`cl-weave`'s own flake is built. `cl-cc-ast` and `cl-weave` stay `flake =
+false` raw source trees — neither publishes a flake of its own — wrapped with
+`cl.lispDerivation` directly in `flake.nix`'s `lispDependencies` /
+`lispCheckDependencies`. `checks.paredit-lint` runs
+[paredit-cli](https://github.com/takeokunn/paredit-cli)'s structural lint
+(`paredit inspect lint`) over every source file as a `nix flake check` gate,
+not just a manual local command.
 
 ## Layout
 
@@ -37,10 +51,24 @@ variable at `cl-cc-ast` and `cl-weave` yourself:
 
 ```sh
 export CL_SOURCE_REGISTRY="$PWD/../cl-cc-ast//:$PWD/../cl-weave//:$PWD//"
-sbcl --noinform --script run-tests.lisp
+timeout 1200 sbcl --noinform --script run-tests.lisp
 ```
 
+`1200` matches `flake.nix`'s `testTimeout`, the same figure `nix build
+.#checks.<system>.default` wraps this exact command in — a deadlocked test
+should fail the run, not hang the terminal.
+
 The script exits non-zero when the suite fails, so it works as a gate directly.
+
+If a bare `sbcl --script run-tests.lisp` process sits at (or near) zero CPU
+time indefinitely on a shared machine, that is a host-level scheduling
+problem with plain user processes, not this repository: `nix build
+.#checks.<system>.default` runs the identical check inside a sandboxed
+Nix build (owned by the build user, not your login user) and is not
+subject to whatever is throttling the former. `nix flake check` runs it
+alongside the formatting and docs checks. `nix log <drv>` after a build
+prints the same `cl-weave` reporter output `run-tests.lisp` would have
+printed directly.
 
 ## Coverage
 
@@ -48,12 +76,32 @@ The script exits non-zero when the suite fails, so it works as a gate directly.
 and writes an HTML report to `coverage/report/`.
 
 ```sh
-nix develop -c sbcl --noinform --script scripts/run-coverage.lisp
+nix build .#coverage
+open result/cover-index.html   # per-file expression/branch percentages
 ```
 
-The recompile is not avoidable: SB-COVER only measures forms compiled while its
-`store-coverage-data` optimize policy is proclaimed, so reusing the FASLs
-`run-tests.lisp` left behind would report zero. `coverage/` is ignored by git.
+`packages.coverage` is `cl-nix-forge`'s `mkCoverageReport`, wired in
+`flake.nix`'s `extraOutputs`. It runs `scripts/run-coverage.lisp`'s underlying
+sequence the same sandboxed way `checks.default` runs `run-tests.lisp`: a bare
+`nix develop -c sbcl --script scripts/run-coverage.lisp` is a host-owned
+process, and on a shared machine it can sit at zero CPU indefinitely for the
+same host-scheduling reason documented above for `run-tests.lisp` — a
+`nix build` runs as a `_nixbld*`-owned sandboxed derivation instead, which is
+not subject to it. Falling back to the bare command directly is still possible
+if `nix build` is unavailable:
+
+```sh
+nix develop -c timeout 1200 sbcl --noinform --script scripts/run-coverage.lisp
+```
+
+That fallback still writes to `coverage/report/` (`coverage/` is git-ignored);
+`nix build .#coverage`'s `$out` **is** the report directly (no `report/`
+subdirectory), because `mkCoverageReport` asserts `cover-index.html` is
+non-empty before installing it, so it doubles as a pass/fail check with no
+wrapper derivation needed. Either way the recompile is not avoidable: SB-COVER
+only measures forms compiled while its `store-coverage-data` optimize policy
+is proclaimed, so reusing the FASLs `run-tests.lisp` left behind would report
+zero.
 
 Coverage is a report here, not a ratchet — nothing fails the build on a
 regression. If that changes, the floor belongs in `run-tests.lisp` so that
@@ -76,21 +124,16 @@ Tests go in `t/` and are named after the source file they cover:
 several distinct concerns, the concern goes in the middle —
 `t/types-extended-nodes-test.lisp`, `t/types-extended-nodes-children-test.lisp`
 and `t/types-extended-nodes-coverage-test.lisp` all cover
-`src/types-extended-nodes.lisp`. Two files keep a broader name because no
-single source file owns them: `t/type-system-test.lisp` and
-`t/type-system-effect-test.lisp` run across representation, unification and
-inference together.
+`src/types-extended-nodes.lisp`. Three files keep a broader name because no
+single source file owns them: `t/type-system-test.lisp`,
+`t/type-system-inference-test.lisp`, and `t/type-system-effect-test.lisp` run
+across representation, unification, inference and effects together.
 
 Every file is added to the `:components` list of `cl-cc-type/test`, and tests
 are written against [cl-weave](https://github.com/nerima-lisp/cl-weave) — the
 org's test framework — using `it-sequential`, `it-each`, `expect`,
 `expect-not` and `signals` directly. Do not introduce FiveAM, parachute, rove
 or prove.
-
-`t/package.lisp` defines `defbefore`, a thin forwarder that accepts the
-suite-scope argument the monorepo's old framework took and that cl-weave's own
-`before-each`/`before-all` do not. It exists so the migrated tests did not have
-to be rewritten line by line; new tests should call cl-weave's forms directly.
 
 ## Tests that did not come across
 
@@ -127,8 +170,8 @@ One visible consequence is in `src/types-extended-advanced-validate.lisp`:
 registry and returns `t` permissively when it is absent, rather than reporting
 every anchor as unmet.
 
-The remaining 26 files run 884 cases, covering everything except the inference
-paths that need a parser.
+The remaining 56 files run 1135 cases, covering everything except the
+inference paths that need a parser.
 
 ## Releasing
 

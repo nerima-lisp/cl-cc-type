@@ -61,10 +61,14 @@ The round trip normalises rather than preserving surface syntax: `integer`,
 
 **Signals**: `none`.
 
-### `parse-primitive-type`, `parse-compound-type`, `parse-function-type`
+### `parse-primitive-type`, `parse-compound-type`
 
-The three dispatch targets of `parse-type-specifier`, exported so a caller that
-already knows which shape it has can skip the dispatch. Same conditions.
+Two of `parse-type-specifier`'s dispatch targets, exported so a caller that
+already knows which shape it has can skip the dispatch. Same conditions. The
+third target, arrow-type parsing, is not exported under this pair's calling
+convention: `parse-arrow-type` additionally needs a pre-resolved multiplicity
+value from `parse-type-specifier`'s own dispatch table, so it is not a
+drop-in third case here the way the other two are.
 
 ### `parse-typed-defun`, `parse-typed-lambda`, `parse-lambda-list-with-types`, `parse-typed-parameter`, `parse-typed-optional-parameter`, `extract-return-type`, `looks-like-type-specifier-p`
 
@@ -314,6 +318,10 @@ earlier arm; `warnings` is a list of human-readable strings.
 
 ## Conditions
 
+`type-system-error` is the base of every condition this system signals.
+Catch it to handle any of the library's failures without enumerating the
+concrete conditions below.
+
 | Condition | Signalled when |
 |---|---|
 | `type-parse-error` | A type specifier is malformed. `type-parse-error-message` carries the text |
@@ -321,6 +329,10 @@ earlier arm; `warnings` is a list of human-readable strings.
 | `type-mismatch-error` | `check` finds a conflict. `type-mismatch-error-expected` and `-actual` carry the two types |
 | `unbound-variable-error` | A variable has no binding in the environment. `unbound-variable-error-name` carries the name |
 | `typed-hole-error` | Inference reaches a `?`/`_` hole |
+| `ffi-validation-error` | An FFI descriptor or callback type fails validation |
+| `region-lifetime-error` | A region-scoped reference is used after its region closed |
+| `unit-mismatch-error` | A unit-of-measure conversion or arithmetic op mixes incompatible dimensions |
+| `route-validation-error` | An API route spec is malformed |
 
 ## Groups
 
@@ -337,7 +349,7 @@ two stay in step.
 | Effects | `effect-def`, `*effect-registry*`, `register-effect`, `lookup-effect`, `register-effect-signature`, `lookup-effect-signature`, `infer-effects`, `infer-with-effects`, `check-body-effects`, `effect-row-union`, `effect-row-subset-p` |
 | Rows | `row-extend`, `row-restrict`, `row-select`, `row-labels`, `row-closed-p`, `row-open-p`, `effect-row-extend`, `effect-row-restrict`, `effect-row-member-p` |
 | Type classes | `typeclass-def`, `typeclass-instance`, `*typeclass-registry*`, `*typeclass-instance-registry*`, `register-typeclass`, `register-typeclass-instance`, `has-typeclass-instance-p`, `check-typeclass-constraint`, `dict-env-extend`, `dict-env-lookup` |
-| Type constructors | `type-constructor-def`, `*type-constructor-registry*`, `register-type-constructor`, `lookup-type-constructor`, `*protocol-type-registry*` |
+| Protocol types | `*protocol-type-registry*`, `register-protocol-type`, `lookup-protocol-type` |
 | Aliases and class types | `*type-alias-registry*`, `register-type-alias`, `lookup-type-alias`, `*class-type-registry*`, `register-class-type`, `lookup-class-type`, `lookup-slot-type`, `*class-method-type-registry*`, `*type-predicate-table*` |
 | Advanced semantics | Regions, capabilities, units, QTT, dependent types, FFI descriptors, security labels, contracts and proof-carrying evidence |
 | Datatype generics (FR-1602) | `generic-sum`, `generic-product`, `generic-k1`, `generic-m1`, `generic-u1`, `generic-instance` |
