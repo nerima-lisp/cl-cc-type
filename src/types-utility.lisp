@@ -73,36 +73,42 @@
                                        (type-record-fields type))
                     :row-var nil))
 
+(defun %collapse-union-members (members constructor-name)
+  "Collapse a filtered MEMBERS list back into a single type: no survivors
+becomes TYPE-NULL, one survivor is unwrapped, and several are rewrapped as
+a union tagged CONSTRUCTOR-NAME. Shared tail of EXCLUDE-TYPE, EXTRACT-TYPE,
+and NON-NULLABLE-TYPE, which differ only in how they filter the members."
+  (cond ((null members) type-null)
+        ((null (rest members)) (first members))
+        (t (make-type-union members :constructor-name constructor-name))))
+
 (defun exclude-type (union excluded)
   "Remove EXCLUDED from UNION (FR-3304 Exclude<T,U>)."
   (if (type-union-p union)
-      (let ((members (remove-if (lambda (member)
-                                  (or (type-equal-p member excluded)
-                                      (is-subtype-p member excluded)))
-                                (type-union-types union))))
-        (cond ((null members) type-null)
-              ((null (rest members)) (first members))
-              (t (make-type-union members :constructor-name (type-union-constructor-name union)))))
+      (%collapse-union-members
+       (remove-if (lambda (member)
+                    (or (type-equal-p member excluded)
+                        (is-subtype-p member excluded)))
+                  (type-union-types union))
+       (type-union-constructor-name union))
       (if (is-subtype-p union excluded) type-null union)))
 
 (defun extract-type (union target)
   "Keep members of UNION assignable to TARGET (FR-3304 Extract<T,U>)."
   (if (type-union-p union)
-      (let ((members (remove-if-not (lambda (member) (is-subtype-p member target))
-                                    (type-union-types union))))
-        (cond ((null members) type-null)
-              ((null (rest members)) (first members))
-              (t (make-type-union members :constructor-name (type-union-constructor-name union)))))
+      (%collapse-union-members
+       (remove-if-not (lambda (member) (is-subtype-p member target))
+                       (type-union-types union))
+       (type-union-constructor-name union))
       (if (is-subtype-p union target) union type-null)))
 
 (defun non-nullable-type (type)
   "Remove NULL from TYPE (FR-3304 NonNullable<T>)."
   (if (type-union-p type)
-      (let ((members (remove-if (lambda (member) (type-equal-p member type-null))
-                                (type-union-types type))))
-        (cond ((null members) type-null)
-              ((null (rest members)) (first members))
-              (t (make-type-union members :constructor-name (type-union-constructor-name type)))))
+      (%collapse-union-members
+       (remove-if (lambda (member) (type-equal-p member type-null))
+                  (type-union-types type))
+       (type-union-constructor-name type))
       type))
 
 (defun return-type-of (function-type)

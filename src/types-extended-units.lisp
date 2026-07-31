@@ -1,7 +1,7 @@
 ;;;; types-extended-units.lisp — Unit definitions, measures, SI registrations
 (in-package :cl-cc/type)
 
-(define-simple-condition unit-mismatch-error error
+(define-simple-condition unit-mismatch-error type-system-error
   (left right)
   "Incompatible units: ~S and ~S"
   (unit-mismatch-error-left condition) (unit-mismatch-error-right condition))

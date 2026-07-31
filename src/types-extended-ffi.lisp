@@ -1,7 +1,7 @@
 ;;;; types-extended-ffi.lisp — FFI type descriptors
 (in-package :cl-cc/type)
 
-(define-simple-condition ffi-validation-error error
+(define-simple-condition ffi-validation-error type-system-error
   (detail)
   "Invalid FFI descriptor: ~A" (ffi-validation-error-detail condition))
 
@@ -34,8 +34,8 @@
 (defun make-ffi-scalar-type (kind)
   "Construct a scalar FFI type."
   (let ((normalized (if (keywordp kind) kind (intern (string-upcase (symbol-name kind)) :keyword))))
-    (unless (member normalized +ffi-scalar-kinds+ :test #'eq)
-      (error 'ffi-validation-error :detail (format nil "unknown scalar kind ~S" kind)))
+    (require-with-detail (member normalized +ffi-scalar-kinds+ :test #'eq)
+                          ffi-validation-error "unknown scalar kind ~S" kind)
     (%make-ffi-scalar-type :kind normalized)))
 
 (defun make-ffi-pointer-type (pointee &key (borrowed-p t) nullable-p)
@@ -93,7 +93,6 @@
   (cond
     ((typep value 'type-node) t)
     ((atom value) t)
-    ((not (consp value)) nil)
     ((member (string-upcase (symbol-name (first value)))
              '("C-INT" "C-STRING" "C-PTR") :test #'string=)
      (= (length value) 2))
@@ -134,9 +133,7 @@
      value)
     ((or (symbolp value) (stringp value))
      (let ((kind (%ffi-scalar-kind-from-name (%ffi-symbol-name value))))
-       (unless kind
-         (error 'ffi-validation-error
-                :detail (format nil "unknown FFI scalar descriptor ~S" value)))
+       (require-with-detail kind ffi-validation-error "unknown FFI scalar descriptor ~S" value)
        (make-ffi-scalar-type kind)))
     ((consp value)
      (let* ((head (first value))
@@ -144,32 +141,29 @@
        (cond
          ((and head-name
                (member head-name '("C-PTR" "PTR" "POINTER" "FOREIGN-POINTER") :test #'string=))
-          (unless (= (length value) 2)
-            (error 'ffi-validation-error
-                   :detail (format nil "pointer descriptor needs pointee: ~S" value)))
+          (require-with-detail (= (length value) 2)
+                                ffi-validation-error "pointer descriptor needs pointee: ~S" value)
           (make-ffi-pointer-type (ffi-descriptor-from-form (second value))))
          ((and head-name (string= head-name "C-CALLBACK"))
-          (unless (>= (length value) 3)
-            (error 'ffi-validation-error
-                   :detail (format nil "callback descriptor needs args and return: ~S" value)))
+          (require-with-detail (>= (length value) 3)
+                                ffi-validation-error
+                                "callback descriptor needs args and return: ~S" value)
           (make-ffi-callback-type (mapcar #'ffi-descriptor-from-form (second value))
                                   (ffi-descriptor-from-form (third value))))
          ((and head-name
                (member head-name '("FOREIGN" "FOREIGN-FUNCTION" "FFI-FUNCTION") :test #'string=))
-          (unless (= (length value) 4)
-            (error 'ffi-validation-error
-                   :detail (format nil "foreign function descriptor needs name, args, return: ~S"
-                                   value)))
+          (require-with-detail (= (length value) 4)
+                                ffi-validation-error
+                                "foreign function descriptor needs name, args, return: ~S" value)
           (make-ffi-function-descriptor (second value)
                                         (mapcar #'ffi-descriptor-from-form (third value))
                                         (ffi-descriptor-from-form (fourth value))))
          ((%ffi-scalar-kind-from-name head-name)
           (ffi-descriptor-from-form head))
          (t
-          (error 'ffi-validation-error
-                 :detail (format nil "unknown FFI descriptor form ~S" value))))))
+          (error-with-detail ffi-validation-error "unknown FFI descriptor form ~S" value)))))
     (t
-     (error 'ffi-validation-error :detail (format nil "unsupported FFI descriptor ~S" value)))))
+     (error-with-detail ffi-validation-error "unsupported FFI descriptor ~S" value))))
 
 (defun ffi-descriptor-lisp-type (descriptor)
   "Return the CL-CC type-node produced by DESCRIPTOR."
@@ -191,10 +185,14 @@
                                 (ffi-callback-type-argument-types normalized))
                         (ffi-descriptor-lisp-type
                          (ffi-callback-type-return-type normalized))))
-      ((ffi-function-descriptor-p normalized)
+      ;; FFI-DESCRIPTOR-FROM-FORM's own COND always returns one of exactly
+      ;; four descriptor kinds (scalar, pointer, callback, function) or
+      ;; signals; having ruled out the first three above, NORMALIZED must
+      ;; be a function descriptor here, so no further check or fallback
+      ;; clause is reachable.
+      (t
        (make-type-arrow (mapcar #'ffi-descriptor-lisp-type
                                 (ffi-function-descriptor-argument-types normalized))
                         (ffi-descriptor-lisp-type
-                         (ffi-function-descriptor-return-type normalized))))
-      (t type-any))))
+                         (ffi-function-descriptor-return-type normalized)))))))
 
