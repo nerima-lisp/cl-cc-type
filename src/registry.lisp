@@ -101,3 +101,49 @@ upcased, and anything else is returned as-is."
        ((symbolp ,param) (intern (symbol-name ,param) :keyword))
        ((stringp ,param) (intern (string-upcase ,param) :keyword))
        (t ,param))))
+
+;;; ─── Module-boundary fboundp assertion macro ───────────────────────────────
+;;; checker.lisp is a module boundary that only re-exports functions defined
+;;; in other files, and checks at load time that each one actually got
+;;; defined where it expects. ASSERT-FBOUNDP-IN generates one such ASSERT so
+;;; the boundary file does not hand-write the same "fboundp, nil, explanatory
+;;; message" shape once per re-exported name.
+
+(defmacro assert-fboundp-in (name source-file)
+  "Assert that NAME is FBOUNDP, reporting SOURCE-FILE as where it should have
+been defined if the assertion fails."
+  `(assert (fboundp ',name) nil
+           ,(format nil "checker.lisp: ~A must be defined in ~A" name source-file)))
+
+;;; ─── Parser guard-and-report macro ─────────────────────────────────────────
+;;; parser.lisp and parser-extended.lisp are full of "signal TYPE-PARSE-ERROR
+;;; unless this shape-check holds" guards — over twenty of them, one per
+;;; compound-type-syntax arity/shape rule. PARSER-REQUIRE generates that
+;;; shape so call sites do not hand-write UNLESS + TYPE-PARSE-ERROR every
+;;; time. Guards embedded in a COND clause (the clause condition already is
+;;; the check) do not use it — there is no UNLESS to fold away there.
+
+(defmacro parser-require (predicate format-control &rest format-args)
+  "Signal TYPE-PARSE-ERROR via FORMAT-CONTROL/FORMAT-ARGS unless PREDICATE
+holds."
+  `(unless ,predicate
+     (type-parse-error ,format-control ,@format-args)))
+
+;;; ─── :detail-condition signaling macros ────────────────────────────────────
+;;; types-extended-ffi.lisp and types-extended-routing-types.lisp both define
+;;; their validation condition (FFI-VALIDATION-ERROR, ROUTE-VALIDATION-ERROR)
+;;; with DEFINE-SIMPLE-CONDITION's :DETAIL slot convention, then repeatedly
+;;; hand-write `(error 'CONDITION :detail (format nil "..." args))` — as a
+;;; COND fallback clause in some places, guarded by an UNLESS in others.
+;;; ERROR-WITH-DETAIL covers the shape itself; REQUIRE-WITH-DETAIL adds the
+;;; UNLESS guard for call sites that need one.
+
+(defmacro error-with-detail (condition-type format-control &rest format-args)
+  "Signal CONDITION-TYPE with a :DETAIL initarg built from
+(format nil FORMAT-CONTROL . FORMAT-ARGS)."
+  `(error ',condition-type :detail (format nil ,format-control ,@format-args)))
+
+(defmacro require-with-detail (predicate condition-type format-control &rest format-args)
+  "Signal CONDITION-TYPE via ERROR-WITH-DETAIL unless PREDICATE holds."
+  `(unless ,predicate
+     (error-with-detail ,condition-type ,format-control ,@format-args)))

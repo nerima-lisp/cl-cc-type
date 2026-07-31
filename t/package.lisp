@@ -2,9 +2,7 @@
 ;;;;
 ;;;; Tests call cl-weave's native forms directly: it-sequential, it-each,
 ;;;; expect/expect-not with the built-in matchers plus the two domain
-;;;; matchers below, signals, before-each/before-all (via defbefore, a thin
-;;;; forwarder for the :each/:all suite-scope argument cl-weave's own
-;;;; before-each/before-all don't take).
+;;;; matchers below, signals, before-each/before-all.
 
 (defpackage :cl-cc-type/test
   (:use :cl :cl-weave :cl-cc/type :cl-cc/ast)
@@ -16,17 +14,9 @@
    #:type-error #:subtypep
    #:upgraded-array-element-type #:upgraded-complex-part-type
    #:measure #:capability)
-  (:export #:defbefore #:assert-when-present))
+  (:export #:assert-when-present))
 
 (in-package :cl-cc-type/test)
-
-(defmacro defbefore (kind suites &body body)
-  "Monorepo suite-scoped setup hook -> cl-weave root before-each/before-all.
-The suite argument is ignored; the hook applies to the flat test set."
-  (declare (ignore suites))
-  (ecase kind
-    (:each `(before-each ,@body))
-    (:all  `(before-all ,@body))))
 
 (defmacro assert-when-present (value form)
   "Evaluate FORM (an assertion) only when VALUE is non-nil.

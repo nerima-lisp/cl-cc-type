@@ -200,6 +200,7 @@
 
    ;; ─── Union / Intersection ────────────────────────────────────────────
    #:type-union    #:type-union-p    #:make-type-union  #:make-type-union-raw  #:type-union-types
+   #:type-union-constructor-name
    #:type-intersection  #:type-intersection-p  #:make-type-intersection
    #:make-type-intersection-raw  #:type-intersection-types
 
@@ -288,7 +289,7 @@
    ;; ─── Type scheme ─────────────────────────────────────────────────────
    #:type-scheme   #:type-scheme-p
    #:type-scheme-quantified-vars #:type-scheme-type
-   #:make-type-scheme  #:make-type-scheme-raw  #:type-to-scheme
+   #:make-type-scheme  #:type-to-scheme
    #:generalize    #:instantiate
 
    ;; ─── Type environment ────────────────────────────────────────────────
@@ -308,12 +309,15 @@
    #:zonk
    #:type-occurs-p  #:apply-unification
 
+   ;; ─── Conditions ──────────────────────────────────────────────────────
+   #:type-system-error
+
    ;; ─── Unification ─────────────────────────────────────────────────────
    #:type-unify  #:type-unify-lists
     #:type-inference-error  #:type-inference-error-message
     #:typed-hole-error
     #:type-mismatch-error  #:type-mismatch-error-expected  #:type-mismatch-error-actual
-   #:unbound-variable-error  #:unbound-variable-name  #:unbound-variable-error-name
+   #:unbound-variable-error  #:unbound-variable-error-name
    #:check-qualified-constraints
 
    ;; ─── Effect system ───────────────────────────────────────────────────
@@ -340,9 +344,6 @@
    #:constraint-free-vars  #:constraint-substitute
 
    ;; ─── Subtyping ───────────────────────────────────────────────────────
-   #:type-constructor-def  #:type-constructor-def-p
-   #:*type-constructor-registry*
-   #:register-type-constructor  #:lookup-type-constructor
     #:subtypep  #:is-subtype-p
      #:type-join  #:type-meet
      #:*subtype-table*  #:type-name-subtype-p  #:find-common-supertype
@@ -366,7 +367,7 @@
 
    ;; ─── Inference engine ────────────────────────────────────────────────
    #:narrow-union-type  #:extract-type-guard
-   #:infer  #:infer-with-env
+   #:infer  #:infer-with-env  #:infer-with-constraints
    #:infer-binop  #:infer-if  #:infer-let  #:infer-lambda
    #:infer-call   #:infer-progn  #:infer-args
    #:annotate-type
@@ -385,7 +386,6 @@
    ;; ─── Parser ──────────────────────────────────────────────────────────
    #:type-parse-error  #:type-parse-error-message
    #:parse-type-specifier  #:parse-primitive-type  #:parse-compound-type
-   #:parse-function-type
    #:parse-lambda-list-with-types  #:parse-typed-parameter
    #:parse-typed-optional-parameter
    #:extract-return-type
@@ -397,7 +397,6 @@
    #:ast-lambda-typed-env  #:ast-lambda-typed-source-location  #:make-ast-lambda-typed
    #:parse-typed-defun  #:parse-typed-lambda
    #:looks-like-type-specifier-p
-   #:*lambda-list-keywords*
 
    ;; ─── Exhaustiveness checking ─────────────────────────────────────────
    #:check-typecase-exhaustiveness
@@ -420,3 +419,12 @@
 ;; before type/inference.lisp is loaded. defvar is idempotent.
 (defvar *type-alias-registry* (make-hash-table :test #'eq)
   "Maps type alias names to their type specifications.")
+
+;; TYPE-SYSTEM-ERROR is the package's base condition, defined here (before
+;; every file that signals a condition of its own) so each of them can name
+;; it as a parent. It is never signalled directly: catching it lets a caller
+;; handle any failure raised by :CL-CC/TYPE without enumerating
+;; TYPE-INFERENCE-ERROR, TYPE-PARSE-ERROR, FFI-VALIDATION-ERROR,
+;; REGION-LIFETIME-ERROR, UNIT-MISMATCH-ERROR, and ROUTE-VALIDATION-ERROR
+;; one by one.
+(define-condition type-system-error (error) ())
