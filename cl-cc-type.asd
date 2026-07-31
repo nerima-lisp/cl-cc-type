@@ -123,6 +123,7 @@
   :components
   ((:file "package")
    (:file "type-system-test")
+   (:file "type-system-inference-test")
    (:file "type-system-effect-test")
    ;; inference-tests, inference-forms-tests, inference-effect-tests,
    ;; type-inference-tests and type-phase-tests are absent, not disabled: they
@@ -136,7 +137,39 @@
    ;; homegrown framework's cl-cc/test::*known-test-names* registry. Neither
    ;; exists outside the monorepo, and it asserts nothing about type-system
    ;; behaviour, so it did not follow the code here.
-   (:file "types-extended-advanced-semantics-test")
+   ;;
+   ;; The following files used to be mechanically concatenated into a single
+   ;; types-extended-advanced-semantics-test.lisp (a Nix flake source-extraction
+   ;; artifact); they are split here one-per-source-file, each named after the
+   ;; src/ file it exercises.
+   (:file "types-extended-concurrency-test")
+   (:file "types-extended-security-labels-test")
+   (:file "types-extended-regions-test")
+   (:file "types-extended-capabilities-test")
+   (:file "types-extended-units-test")
+   (:file "types-extended-routing-types-test")
+   (:file "types-extended-ffi-test")
+   (:file "types-extended-qtt-test")
+   (:file "types-extended-dependent-test")
+   (:file "types-extended-advanced-meta-test")
+   (:file "types-extended-advanced-node-test")
+   (:file "types-extended-advanced-meta-validators-test")
+   (:file "types-extended-advanced-contract-test")
+   (:file "types-extended-advanced-validators-test")
+   (:file "types-extended-advanced-validate-test")
+   (:file "types-extended-advanced-init-test")
+   (:file "types-extended-registries-test")
+   (:file "bidirectional-test")
+   (:file "inference-forms-advanced-test")
+   (:file "generics-test")
+   (:file "channels-test")
+   (:file "actors-test")
+   (:file "stm-test")
+   (:file "coroutines-test")
+   (:file "simd-test")
+   (:file "routing-test")
+   (:file "types-hlist-test")
+   (:file "types-utility-test")
    (:file "kind-test")
    (:file "multiplicity-test")
    (:file "row-test")
@@ -148,7 +181,10 @@
    (:file "solver-collect-test")
    (:file "types-extended-nodes-test")
    (:file "substitution-test")
+   (:file "substitution-zonk-test")
    (:file "unification-test")
+   (:file "unification-advanced-nodes-test")
+   (:file "unification-effect-rows-test")
    (:file "types-extended-nodes-children-test")
    (:file "types-extended-nodes-coverage-test")
    (:file "checker-test")
@@ -157,7 +193,8 @@
    (:file "parser-test")
    (:file "parser-arrow-quantifier-test")
    (:file "parser-typed-test")
-   (:file "exhaustiveness-test"))
+   (:file "exhaustiveness-test")
+   (:file "property-test"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (unless (uiop:symbol-call :cl-weave
