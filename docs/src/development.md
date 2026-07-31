@@ -177,6 +177,8 @@ inference paths that need a parser.
 
 Bump `:version` in `cl-cc-type.asd`. That is the only place the version is
 written: `flake.nix` reads the form, and `release.yml` refuses to publish a tag
-that disagrees with it. Add the section to `CHANGELOG.md` under a
-`## [X.Y.Z] - YYYY-MM-DD` heading — `release.yml` extracts exactly that section
-as the release body — then push the tag.
+that disagrees with it. Push the tag, and `release.yml` opens an empty *draft*
+release. The
+[GitHub Release description](https://github.com/nerima-lisp/cl-cc-type/releases)
+is the org's only canonical changelog, so write the notes into that draft and
+publish it with `gh release edit vX.Y.Z --notes-file notes.md --draft=false`.

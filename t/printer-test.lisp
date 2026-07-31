@@ -353,7 +353,7 @@
 ;;; SBCL rejecting a `(%make-type-advanced ... :name "not-a-symbol" ...)`
 ;;; attempt here at compile time with "conflicts with its asserted type
 ;;; SYMBOL". Left undone, like the other struct-enforced guards documented
-;;; elsewhere in this file's CHANGELOG history.
+;;; elsewhere in this file's own commit history.
 
 ;;; ─── type-to-string: type-scheme quantified-vars branch ──────────────────
 

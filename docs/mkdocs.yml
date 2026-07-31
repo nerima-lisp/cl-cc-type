@@ -3,9 +3,8 @@
 # Build:   mkdocs build --strict --config-file docs/mkdocs.yml
 # Serve:   mkdocs serve --config-file docs/mkdocs.yml
 #
-# Invoke from the REPOSITORY ROOT, not from docs/: the pymdownx.snippets
-# base_path below is "." and docs/src/changelog.md pulls in the root
-# CHANGELOG.md through it. `nix build .#docs` drives the same config offline.
+# Invoke from the REPOSITORY ROOT, not from docs/. `nix build .#docs` drives
+# the same config offline.
 
 site_name: cl-cc-type
 site_description: >-
@@ -94,14 +93,6 @@ markdown_extensions:
       line_spans: __span
       pygments_lang_class: true
   - pymdownx.inlinehilite
-  - pymdownx.snippets:
-      # Resolved against the working directory mkdocs runs in — the repository
-      # root, per the header above — so docs/src/changelog.md can include the
-      # root CHANGELOG.md. check_paths turns a missing include into a build
-      # failure, the same gate --strict gives for links.
-      base_path:
-        - "."
-      check_paths: true
   - pymdownx.superfences:
       custom_fences:
         - name: mermaid
@@ -133,7 +124,6 @@ nav:
       - API Reference: api-reference.md
   - Project:
       - Development: development.md
-      - Changelog: changelog.md
 
 not_in_nav: |
   notes/
