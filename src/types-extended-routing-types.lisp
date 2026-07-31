@@ -1,7 +1,7 @@
 ;;;; types-extended-routing-types.lisp — Route, api-spec structs and validators
 (in-package :cl-cc/type)
 
-(define-simple-condition route-validation-error error
+(define-simple-condition route-validation-error type-system-error
   (detail)
   "Invalid route: ~A" (route-validation-error-detail condition))
 
@@ -58,8 +58,7 @@
                (cons (intern (string-upcase (symbol-name (car entry))) :keyword)
                      (cdr entry)))
               (t
-               (error 'route-validation-error
-                      :detail (format nil "malformed parameter ~S" entry)))))
+               (error-with-detail route-validation-error "malformed parameter ~S" entry))))
           parameters))
 
 (defun route-valid-p (route)
@@ -82,8 +81,7 @@
                             :parameters (%normalize-route-parameters parameters)
                             :request-type request-type
                             :response-type response-type)))
-    (unless (route-valid-p route)
-      (error 'route-validation-error :detail (format nil "~S ~A" method path)))
+    (require-with-detail (route-valid-p route) route-validation-error "~S ~A" method path)
     route))
 
 (defun %parse-route-parameter (raw-value type-designator)
@@ -98,10 +96,21 @@
     ((eq type-designator 'keyword) (intern (string-upcase raw-value) :keyword))
     (t (when (typep raw-value type-designator) raw-value))))
 
+(defun %route-path-placeholder-p (segment)
+  "T when SEGMENT is a {name}-braced route path parameter placeholder."
+  (and (> (length segment) 2)
+       (char= (char segment 0) #\{)
+       (char= (char segment (1- (length segment))) #\})))
+
+(defun %route-path-placeholder-name (segment)
+  "Return the keyword parameter name a {name}-braced SEGMENT denotes.
+Assumes %ROUTE-PATH-PLACEHOLDER-P already holds for SEGMENT."
+  (intern (string-upcase (subseq segment 1 (1- (length segment)))) :keyword))
+
 (defun build-route-path (route parameter-values)
   "Render ROUTE using PARAMETER-VALUES, an alist keyed by parameter name."
-  (unless (route-valid-p route)
-    (error 'route-validation-error :detail "cannot build an invalid route"))
+  (require-with-detail (route-valid-p route) route-validation-error
+                        "cannot build an invalid route")
   (let* ((value-alist (%normalize-route-parameters parameter-values))
          (expected (%normalize-route-parameters (route-parameters route)))
          (segments (%split-path (route-path route))))
@@ -110,19 +119,14 @@
      "/"
      (format nil "~{~A~^/~}"
              (mapcar (lambda (segment)
-                       (if (and (> (length segment) 2)
-                                (char= (char segment 0) #\{)
-                                (char= (char segment (1- (length segment))) #\}))
-                           (let* ((name (intern
-                                         (string-upcase
-                                          (subseq segment 1 (1- (length segment))))
-                                         :keyword))
+                       (if (%route-path-placeholder-p segment)
+                           (let* ((name (%route-path-placeholder-name segment))
                                   (expected-type (cdr (assoc name expected :test #'eq)))
                                   (actual (cdr (assoc name value-alist :test #'eq))))
-                             (unless (typep actual expected-type)
-                               (error 'route-validation-error
-                                      :detail (format nil "parameter ~A expected ~S, got ~S"
-                                                      name expected-type actual)))
+                             (require-with-detail (typep actual expected-type)
+                                                   route-validation-error
+                                                   "parameter ~A expected ~S, got ~S"
+                                                   name expected-type actual)
                              (princ-to-string actual))
                            segment))
                      segments)))))
@@ -139,10 +143,8 @@
       (return-from match-route-path (values nil nil)))
     (loop for template in template-segments
           for actual in path-segments do
-      (if (and (> (length template) 2)
-               (char= (char template 0) #\{)
-               (char= (char template (1- (length template))) #\}))
-          (let* ((name (intern (string-upcase (subseq template 1 (1- (length template)))) :keyword))
+      (if (%route-path-placeholder-p template)
+          (let* ((name (%route-path-placeholder-name template))
                  (type-designator (cdr (assoc name parameters :test #'eq)))
                  (parsed (%parse-route-parameter actual type-designator)))
             (unless parsed

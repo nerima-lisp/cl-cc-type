@@ -2,7 +2,7 @@
 
 (in-package :cl-cc/type)
 
-(define-simple-condition region-lifetime-error error
+(define-simple-condition region-lifetime-error type-system-error
   (reference)
   "Region reference ~S is no longer valid" (region-lifetime-error-reference condition))
 
