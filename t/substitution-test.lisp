@@ -88,325 +88,19 @@
       (expect (cl-cc/type:type-primitive-p val) :to-be-truthy)
       (expect (cl-cc/type:type-primitive-name val) :to-be 'fixnum))))
 
-;;; ─── Zonk: Various Type Constructors ────────────────────────────────────
 (it-sequential
-  "zonk-nil-primitive-and-unbound-are-unchanged"
-  (let ((s (make-substitution)))
-    (expect (zonk nil s) :to-be-null)
-    (expect (zonk cl-cc/type:type-int s) :to-be cl-cc/type:type-int)
-    (let ((v (cl-cc/type:fresh-type-var 'a)))
-      (expect (zonk v s) :to-be v))))
-
-(it-sequential
-  "zonk-bound-var-resolves-to-bound-type"
-  (let* ((v (cl-cc/type:fresh-type-var 'a))
-         (s (subst-extend v cl-cc/type:type-int nil)))
-    (expect (zonk v s) :to-be cl-cc/type:type-int)))
-
-(it-sequential
-  "zonk-chain-resolves-to-terminal"
+  "subst-compose-s2s-binding-wins-over-s1s-for-a-shared-key"
+  ;; The pre-existing chains test above copies S1's B->INT entry through
+  ;; because B is absent from S2's bindings (S2 only has key A); the other
+  ;; side of that UNLESS -- a key present in BOTH, where S1's raw entry
+  ;; must be skipped in favor of S2's (zonked) one -- had never fired.
   (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (s (make-substitution)))
-    (subst-extend! a b s)
-    (subst-extend! b cl-cc/type:type-int s)
-    (let ((result (zonk a s)))
-      (expect (cl-cc/type:type-primitive-p result) :to-be-truthy)
-      (expect (cl-cc/type:type-primitive-name result) :to-be 'fixnum))))
-
-(it-sequential
-  "zonk-arrow-type-substitutes-params-and-return"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (fn-ty (cl-cc/type:make-type-arrow-raw :params (list a) :return b))
-         (s (make-substitution)))
-    (subst-extend! a cl-cc/type:type-int s)
-    (subst-extend! b cl-cc/type:type-string s)
-    (let ((result (zonk fn-ty s)))
-      (expect (cl-cc/type:type-arrow-p result) :to-be-truthy)
-      (expect
-        (cl-cc/type:type-primitive-name (car (cl-cc/type:type-arrow-params result)))
-        :to-be
-        'fixnum)
-      (expect
-        (cl-cc/type:type-primitive-name (cl-cc/type:type-arrow-return result))
-        :to-be
-        'string))))
-
-(it-sequential
-  "zonk-product-type-substitutes-elements"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (prod (cl-cc/type:make-type-product :elems (list a cl-cc/type:type-string)))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk prod s)))
-    (expect (cl-cc/type:type-product-p result) :to-be-truthy)
-    (expect (length (cl-cc/type:type-product-elems result)) :to-equal 2)
-    (expect
-      (cl-cc/type:type-primitive-name (first (cl-cc/type:type-product-elems result)))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-forall-type-substitutes-body"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (forall-ty (cl-cc/type:make-type-forall :var a :body b))
-         (s (subst-extend b cl-cc/type:type-int nil))
-         (result (zonk forall-ty s)))
-    (expect (cl-cc/type:type-forall-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-forall-body result))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-type-app-substitutes-fun-and-arg"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (app-ty (cl-cc/type:make-type-app :fun a :arg b))
-         (s (make-substitution)))
-    (subst-extend! a cl-cc/type:type-int s)
-    (subst-extend! b cl-cc/type:type-string s)
-    (let ((result (zonk app-ty s)))
-      (expect (cl-cc/type:type-app-p result) :to-be-truthy)
-      (expect
-        (cl-cc/type:type-primitive-name (cl-cc/type:type-app-fun result))
-        :to-be
-        'fixnum)
-      (expect
-        (cl-cc/type:type-primitive-name (cl-cc/type:type-app-arg result))
-        :to-be
-        'string))))
-
-(it-sequential
-  "zonk-union-type-substitutes-members"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (union-ty
-        (cl-cc/type:make-type-union-raw :types (list a cl-cc/type:type-string)))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk union-ty s)))
-    (expect (cl-cc/type:type-union-p result) :to-be-truthy)
-    (expect (length (cl-cc/type:type-union-types result)) :to-equal 2)))
-
-(it-sequential
-  "zonk-effect-row-var-is-resolved"
-  (let* ((rv (cl-cc/type:fresh-type-var 'r))
-         (eff (cl-cc/type:make-type-effect-op :name 'io :args nil))
-         (row (cl-cc/type:make-type-effect-row :effects (list eff) :row-var rv))
-         (s
-        (subst-extend
-          rv
-          (cl-cc/type:make-type-effect-row :effects nil :row-var nil)
-          nil)))
-    (expect (cl-cc/type:type-effect-row-p (zonk row s)) :to-be-truthy)))
-
-(it-sequential
-  "zonk-effect-rows-are-merged-when-var-resolves-to-row"
-  (let* ((rv (cl-cc/type:fresh-type-var 'r))
-         (eff1 (cl-cc/type:make-type-effect-op :name 'io :args nil))
-         (eff2 (cl-cc/type:make-type-effect-op :name 'exn :args nil))
-         (row1 (cl-cc/type:make-type-effect-row :effects (list eff1) :row-var rv))
-         (row2 (cl-cc/type:make-type-effect-row :effects (list eff2) :row-var nil))
-         (s (subst-extend rv row2 nil))
-         (result (zonk row1 s)))
-    (expect (cl-cc/type:type-effect-row-p result) :to-be-truthy)
-    (expect (length (cl-cc/type:type-effect-row-effects result)) :to-equal 2)))
-
-(it-sequential
-  "zonk-variant-type-substitutes-cases"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (variant-ty (cl-cc/type:make-type-variant
-                      :cases (list (cons 'ok a) (cons 'err cl-cc/type:type-string))
-                      :row-var nil))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk variant-ty s)))
-    (expect (cl-cc/type:type-variant-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cdr (assoc 'ok (cl-cc/type:type-variant-cases result))))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-intersection-type-substitutes-types"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (inter-ty (cl-cc/type:make-type-intersection (list a cl-cc/type:type-string)))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk inter-ty s)))
-    (expect (cl-cc/type:type-intersection-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (first (cl-cc/type:type-intersection-types result)))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-exists-type-substitutes-body"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (exists-ty (cl-cc/type:make-type-exists :var a :body b))
-         (s (subst-extend b cl-cc/type:type-int nil))
-         (result (zonk exists-ty s)))
-    (expect (cl-cc/type:type-exists-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-exists-body result))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-lambda-type-substitutes-body"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (lambda-ty (cl-cc/type:make-type-lambda :var a :body b))
-         (s (subst-extend b cl-cc/type:type-int nil))
-         (result (zonk lambda-ty s)))
-    (expect (cl-cc/type:type-lambda-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-lambda-body result))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-mu-type-substitutes-body"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (mu-ty (cl-cc/type:make-type-mu :var a :body b))
-         (s (subst-extend b cl-cc/type:type-int nil))
-         (result (zonk mu-ty s)))
-    (expect (cl-cc/type:type-mu-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-mu-body result))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-refinement-type-substitutes-base-preserves-predicate"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (refine-ty (cl-cc/type:make-type-refinement :base a :predicate 'positive-p))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk refine-ty s)))
-    (expect (cl-cc/type:type-refinement-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-refinement-base result))
-      :to-be
-      'fixnum)
-    (expect (cl-cc/type:type-refinement-predicate result) :to-be 'positive-p)))
-
-(it-sequential
-  "zonk-linear-type-substitutes-base-preserves-grade"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (linear-ty (cl-cc/type:make-type-linear :base a :grade :one))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk linear-ty s)))
-    (expect (cl-cc/type:type-linear-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-linear-base result))
-      :to-be
-      'fixnum)
-    (expect (cl-cc/type:type-linear-grade result) :to-be :one)))
-
-(it-sequential
-  "zonk-capability-type-substitutes-base-preserves-cap"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (cap-ty (cl-cc/type:make-type-capability :base a :cap 'read))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk cap-ty s)))
-    (expect (cl-cc/type:type-capability-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-capability-base result))
-      :to-be
-      'fixnum)
-    (expect (cl-cc/type:type-capability-cap result) :to-be 'read)))
-
-(it-sequential
-  "zonk-effect-op-type-substitutes-args"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (op-ty (cl-cc/type:make-type-effect-op :name 'state :args (list a)))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk op-ty s)))
-    (expect (cl-cc/type:type-effect-op-p result) :to-be-truthy)
-    (expect (cl-cc/type:type-effect-op-name result) :to-be 'state)
-    (expect
-      (cl-cc/type:type-primitive-name (first (cl-cc/type:type-effect-op-args result)))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-advanced-type-substitutes-args-properties-and-evidence"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (advanced-ty
-          (cl-cc/type:make-type-advanced
-           :feature-id "FR-1501" :name 'test
-           :args (list a)
-           :properties (list (cons :k a))
-           :evidence a))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk advanced-ty s)))
-    (expect (cl-cc/type:type-advanced-p result) :to-be-truthy)
-    (expect
-      (cl-cc/type:type-primitive-name (first (cl-cc/type:type-advanced-args result)))
-      :to-be
-      'fixnum)
-    (expect
-      (cl-cc/type:type-primitive-name (cdr (first (cl-cc/type:type-advanced-properties result))))
-      :to-be
-      'fixnum)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-advanced-evidence result))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-handler-type-substitutes-input-and-output"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (eff (cl-cc/type:make-type-effect-op :name 'io :args nil))
-         (handler-ty (cl-cc/type:make-type-handler :effect eff :input a :output b))
-         (s (make-substitution)))
-    (subst-extend! a cl-cc/type:type-int s)
-    (subst-extend! b cl-cc/type:type-string s)
-    (let ((result (zonk handler-ty s)))
-      (expect (cl-cc/type:type-handler-p result) :to-be-truthy)
-      (expect
-        (cl-cc/type:type-primitive-name (cl-cc/type:type-handler-input result))
-        :to-be
-        'fixnum)
-      (expect
-        (cl-cc/type:type-primitive-name (cl-cc/type:type-handler-output result))
-        :to-be
-        'string))))
-
-(it-sequential
-  "zonk-constraint-type-substitutes-type-arg"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (constraint-ty (cl-cc/type:make-type-constraint :class-name 'eq :type-arg a))
-         (s (subst-extend a cl-cc/type:type-int nil))
-         (result (zonk constraint-ty s)))
-    (expect (cl-cc/type:type-constraint-p result) :to-be-truthy)
-    (expect (cl-cc/type:type-constraint-class-name result) :to-be 'eq)
-    (expect
-      (cl-cc/type:type-primitive-name (cl-cc/type:type-constraint-type-arg result))
-      :to-be
-      'fixnum)))
-
-(it-sequential
-  "zonk-qualified-type-substitutes-constraints-and-body"
-  (let* ((a (cl-cc/type:fresh-type-var 'a))
-         (b (cl-cc/type:fresh-type-var 'b))
-         (constraint-ty (cl-cc/type:make-type-constraint :class-name 'eq :type-arg a))
-         (qualified-ty (cl-cc/type:make-type-qualified :constraints (list constraint-ty) :body b))
-         (s (make-substitution)))
-    (subst-extend! a cl-cc/type:type-int s)
-    (subst-extend! b cl-cc/type:type-string s)
-    (let ((result (zonk qualified-ty s)))
-      (expect (cl-cc/type:type-qualified-p result) :to-be-truthy)
-      (expect
-        (cl-cc/type:type-primitive-name
-         (cl-cc/type:type-constraint-type-arg (first (cl-cc/type:type-qualified-constraints result))))
-        :to-be
-        'fixnum)
-      (expect
-        (cl-cc/type:type-primitive-name (cl-cc/type:type-qualified-body result))
-        :to-be
-        'string))))
+         (s2 (subst-extend a cl-cc/type:type-string nil))
+         (s1 (subst-extend a cl-cc/type:type-int nil))
+         (result (subst-compose s1 s2)))
+    (multiple-value-bind (val found) (subst-lookup a result)
+      (expect found :to-be-truthy)
+      (expect val :to-be cl-cc/type:type-string))))
 
 ;;; ─── Occurs Check ───────────────────────────────────────────────────────
 (it-sequential
@@ -427,6 +121,17 @@
         (cl-cc/type:make-type-arrow-raw :params (list a) :return cl-cc/type:type-int))
          (s (subst-extend b fn-ty nil)))
     (expect (type-occurs-p a b s) :to-be-truthy)))
+
+(it-sequential
+  "type-occurs-p-treats-a-binders-own-variable-as-shadowed"
+  ;; TYPE-OCCURS-P's (IF (AND BOUND-VAR (TYPE-VAR-EQUAL-P VAR BOUND-VAR)) NIL
+  ;; ...) short-circuit had never fired: no pre-existing case built a
+  ;; binder (TYPE-FORALL/-EXISTS/-LAMBDA/-MU) at all. VAR occurring only as
+  ;; a FORALL's own bound variable must not count as a free occurrence,
+  ;; even though VAR does appear (shadowed) inside BODY too.
+  (let* ((v (cl-cc/type:fresh-type-var 'a))
+         (forall-ty (cl-cc/type:make-type-forall :var v :knd nil :body v)))
+    (expect (type-occurs-p v forall-ty (make-substitution)) :to-be-falsy)))
 
 ;;; ─── Generalize / Instantiate ───────────────────────────────────────────
 (progn
@@ -468,6 +173,21 @@
       (expect (cl-cc/type:type-var-equal-p p1 r1) :to-be-truthy)
       (expect (cl-cc/type:type-var-equal-p p1 a) :to-be-falsy))))
 
+(it-sequential
+  "instantiate-skips-fresh-substitution-for-an-already-linked-quantified-var"
+  ;; A quantified var whose TYPE-VAR-LINK is already set (as if some
+  ;; unrelated earlier unification had reused the same var object)
+  ;; resolves through its own link before INSTANTIATE's freshly built
+  ;; substitution is ever consulted -- ZONK checks TYPE-VAR-LINK ahead of
+  ;; SUBST-LOOKUP. This exercises the bound-preservation loop's
+  ;; (TYPE-VAR-P FRESH) guard's false branch: FRESH resolves to the
+  ;; linked-to concrete type, not the freshly minted variable.
+  (let* ((v (cl-cc/type:fresh-type-var 'a))
+         (scheme (cl-cc/type:make-type-scheme (list v) v)))
+    (setf (cl-cc/type:type-var-link v) cl-cc/type:type-int)
+    (expect (cl-cc/type:type-equal-p (instantiate scheme) cl-cc/type:type-int)
+            :to-be-truthy)))
+
 ;;; ─── Normalize ──────────────────────────────────────────────────────────
 (it-sequential
   "normalize-type-variables-renames-distinct-vars"
@@ -494,6 +214,35 @@
         (car (cl-cc/type:type-arrow-params normed))
         (cl-cc/type:type-arrow-return normed))
       :to-be-truthy)))
+
+(it-sequential
+  "normalize-type-variables-recurses-into-arrow-effects-when-present"
+  ;; %NV-NORM's TYPE-ARROW clause only recurses into :EFFECTS when it is
+  ;; non-nil; the pre-existing arrow tests never set :EFFECTS at all.
+  (let* ((effects (cl-cc/type:make-type-effect-row
+                    :effects (list (cl-cc/type:make-type-effect-op :name 'io :args nil))
+                    :row-var nil))
+         (fn (cl-cc/type:make-type-arrow-raw
+              :params (list (cl-cc/type:fresh-type-var 'p))
+              :return (cl-cc/type:fresh-type-var 'r)
+              :effects effects))
+         (normed (cl-cc/type:normalize-type-variables fn)))
+    (expect (cl-cc/type:type-effect-row-p (cl-cc/type:type-arrow-effects normed)) :to-be-truthy)))
+
+(it-sequential
+  "normalize-type-variables-recurses-into-type-product-elements"
+  ;; %NV-NORM has a dedicated TYPE-PRODUCT clause never reached by any
+  ;; pre-existing NORMALIZE-TYPE-VARIABLES test.
+  (let* ((v1 (cl-cc/type:fresh-type-var 'a))
+         (v2 (cl-cc/type:fresh-type-var 'b))
+         (prod (cl-cc/type:make-type-product :elems (list v1 v2)))
+         (normed (cl-cc/type:normalize-type-variables prod)))
+    (expect (cl-cc/type:type-product-p normed) :to-be-truthy)
+    (expect (every #'cl-cc/type:type-var-p (cl-cc/type:type-product-elems normed)) :to-be-truthy)
+    (expect (cl-cc/type:type-var-equal-p
+             (first (cl-cc/type:type-product-elems normed))
+             (second (cl-cc/type:type-product-elems normed)))
+            :to-be-falsy)))
 
 (it-sequential
   "zonk-env-substitutes-all-bindings"

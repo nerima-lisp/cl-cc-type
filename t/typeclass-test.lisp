@@ -101,6 +101,15 @@
       (expect (lookup-typeclass-instance 'eq type-int) :to-be inst))
     (expect (lookup-typeclass-instance 'eq type-string) :to-be-null)))
 
+(it-sequential "existing-class-instances-filters-by-class-name-and-tolerates-non-cons-keys"
+  (let ((cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+    (register-typeclass-instance 'eq type-int nil)
+    (register-typeclass-instance 'ord type-string nil)
+    (setf (gethash 'malformed-key cl-cc/type:*typeclass-instance-registry*) 'ignored)
+    (let ((eq-instances (cl-cc/type::%existing-class-instances 'eq)))
+      (expect (length eq-instances) :to-equal 1)
+      (expect (cl-cc/type:typeclass-instance-class-name (first eq-instances)) :to-be 'eq))))
+
 (progn
   (it-sequential "typeclass-instance-registry-rejection-cases duplicate"
     (let ((second-type type-int))
@@ -253,6 +262,97 @@
     (expect (length args) :to-equal 2)
     (expect (first args) :to-be type-int)
     (expect (second args) :to-be type-string)))
+
+;;; ─── %typeclass-name-string ────────────────────────────────────────────────
+
+(it-sequential "typeclass-name-string-non-symbol-non-string-falls-back-to-princ"
+  (expect (cl-cc/type::%typeclass-name-string 42) :to-equal "42"))
+
+;;; ─── functional dependency edge cases ──────────────────────────────────────
+
+(it-sequential "typeclass-instance-registry-fundep-unmatched-param-name-skips-check"
+  ;; A functional-dep referencing a param name absent from TYPE-PARAMS (and
+  ;; expressed with bare (non-list) car/cdr) should be silently ignored by
+  ;; %typeclass-fundep-pairs / %typeclass-fundep-violation-p: from-indices
+  ;; fails to resolve, so the dep never triggers a violation.
+  (let ((cl-cc/type:*typeclass-registry* (make-hash-table :test #'eq))
+        (cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+    (register-typeclass 'orphan-fundep-test
+                        (make-typeclass-def
+                         :name 'orphan-fundep-test
+                         :type-params (list (fresh-type-var :name "c"))
+                         :superclasses nil
+                         :methods nil
+                         :associated-types nil
+                         :functional-deps '((missing . c))))
+    (register-typeclass-instance 'orphan-fundep-test type-int nil)
+    (register-typeclass-instance 'orphan-fundep-test type-string nil)
+    (expect (has-typeclass-instance-p 'orphan-fundep-test type-int) :to-be-truthy)
+    (expect (has-typeclass-instance-p 'orphan-fundep-test type-string) :to-be-truthy)))
+
+(it-sequential "typeclass-instance-registry-fundep-mismatched-from-keys-no-violation"
+  ;; When the "from" side of a functional dependency differs between the
+  ;; existing instance and the new one, %typeclass-fundep-violation-p must
+  ;; skip that dep entirely (no violation), so registration succeeds.
+  (let ((cl-cc/type:*typeclass-registry* (make-hash-table :test #'eq))
+        (cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+    (register-typeclass 'matched-fundep-test
+                        (make-typeclass-def
+                         :name 'matched-fundep-test
+                         :type-params (list (fresh-type-var :name "c") (fresh-type-var :name "e"))
+                         :superclasses nil
+                         :methods nil
+                         :associated-types nil
+                         :functional-deps '(((c) . (e)))))
+    (let ((first-type  (make-type-product :elems (list type-int type-string)))
+          (second-type (make-type-product :elems (list type-bool type-bool))))
+      (register-typeclass-instance 'matched-fundep-test first-type nil)
+      (register-typeclass-instance 'matched-fundep-test second-type nil)
+      (expect (lookup-typeclass-instance 'matched-fundep-test first-type) :to-be-truthy)
+      (expect (lookup-typeclass-instance 'matched-fundep-test second-type) :to-be-truthy))))
+
+(it-sequential "typeclass-instance-registry-fundep-matching-from-and-to-no-violation"
+  ;; When BOTH the "from" and "to" sides of a functional dependency already
+  ;; agree between the existing instance and the new one, the (unless (every
+  ;; #'type-equal-p existing-to new-to) (return t)) test in
+  ;; %typeclass-fundep-violation-p must take its "test is true, skip the
+  ;; violation" arm -- the only other existing fundep test drives the
+  ;; opposite (mismatched-to, violation-signaled) arm. A third type param
+  ;; outside the dependency keeps the two instances from colliding as
+  ;; duplicate registrations.
+  (let ((cl-cc/type:*typeclass-registry* (make-hash-table :test #'eq))
+        (cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+    (register-typeclass 'agreeing-fundep-test
+                        (make-typeclass-def
+                         :name 'agreeing-fundep-test
+                         :type-params (list (fresh-type-var :name "c")
+                                            (fresh-type-var :name "e")
+                                            (fresh-type-var :name "f"))
+                         :superclasses nil
+                         :methods nil
+                         :associated-types nil
+                         :functional-deps '(((c) . (e)))))
+    (let ((first-type  (make-type-product :elems (list type-int type-string type-bool)))
+          (second-type (make-type-product :elems (list type-int type-string type-char))))
+      (register-typeclass-instance 'agreeing-fundep-test first-type nil)
+      (register-typeclass-instance 'agreeing-fundep-test second-type nil)
+      (expect (lookup-typeclass-instance 'agreeing-fundep-test first-type) :to-be-truthy)
+      (expect (lookup-typeclass-instance 'agreeing-fundep-test second-type) :to-be-truthy))))
+
+;;; ─── register-typeclass-instance without a registered typeclass-def ───────
+
+(it-sequential "typeclass-instance-registry-skips-fundep-check-when-class-unregistered"
+  ;; When CLASS-NAME has no registered typeclass-def, TC-DEF is nil so
+  ;; (typeclass-def-p tc-def) short-circuits the fundep check entirely;
+  ;; only the overlap check applies. Two non-overlapping instances should
+  ;; register cleanly.
+  (let ((cl-cc/type:*typeclass-registry* (make-hash-table :test #'eq))
+        (cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
+    (expect (lookup-typeclass 'untyped-class-test) :to-be-null)
+    (register-typeclass-instance 'untyped-class-test type-int nil)
+    (register-typeclass-instance 'untyped-class-test type-string nil)
+    (expect (has-typeclass-instance-p 'untyped-class-test type-int) :to-be-truthy)
+    (expect (has-typeclass-instance-p 'untyped-class-test type-string) :to-be-truthy)))
 
 ;;; ─── %typeclass-param-name ────────────────────────────────────────────────
 

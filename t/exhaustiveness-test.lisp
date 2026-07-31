@@ -7,16 +7,25 @@
 (in-package :cl-cc-type/test)
 ;;; ─── typecase-arm-subsumed-p ──────────────────────────────────────────────
 
-(it-each (("exhaustiveness-arm-subsumed-p-cases int-by-T"          integer (t)                     t)
-          ("exhaustiveness-arm-subsumed-p-cases string-by-T"       string  (t)                     t)
-          ("exhaustiveness-arm-subsumed-p-cases fixnum-by-T"       fixnum  (t)                     t)
-          ("exhaustiveness-arm-subsumed-p-cases integer-by-exact"  integer (integer)               t)
-          ("exhaustiveness-arm-subsumed-p-cases string-in-list"    string  (symbol integer string)  t)
-          ("exhaustiveness-arm-subsumed-p-cases fixnum-by-integer" fixnum  (integer)               t)
-          ("exhaustiveness-arm-subsumed-p-cases cons-by-list"      cons    (list)                   t)
-          ("exhaustiveness-arm-subsumed-p-cases string-not-int"    string  (integer)               nil)
-          ("exhaustiveness-arm-subsumed-p-cases symbol-not-in"     symbol  (integer string)        nil)
-          ("exhaustiveness-arm-subsumed-p-cases int-no-arms"       integer nil                       nil))
+(it-each (("exhaustiveness-arm-subsumed-p-cases int-by-T"          integer (t) t)
+          ("exhaustiveness-arm-subsumed-p-cases string-by-T"       string  (t) t)
+          ("exhaustiveness-arm-subsumed-p-cases fixnum-by-T"       fixnum  (t) t)
+          ("exhaustiveness-arm-subsumed-p-cases integer-by-exact"  integer (integer) t)
+          ("exhaustiveness-arm-subsumed-p-cases string-in-list"    string (symbol integer string) t)
+          ("exhaustiveness-arm-subsumed-p-cases fixnum-by-integer" fixnum  (integer) t)
+          ("exhaustiveness-arm-subsumed-p-cases cons-by-list"      cons    (list) t)
+          ("exhaustiveness-arm-subsumed-p-cases string-not-int"    string  (integer) nil)
+          ("exhaustiveness-arm-subsumed-p-cases symbol-not-in"     symbol  (integer string) nil)
+          ("exhaustiveness-arm-subsumed-p-cases int-no-arms"       integer nil nil)
+          ;; TYPECASE-ARM-SUBSUMED-P is exported public API whose docstring
+          ;; documents (not enforces) that ARM-TYPE/ALREADY-COVERED members
+          ;; are "type name symbols (or T)"; every case above honors that,
+          ;; so (SYMBOLP ARM-TYPE) and (SYMBOLP COVERED) had only ever been
+          ;; observed true. Neither errors on a non-symbol -- both simply
+          ;; fail to subsume, since a non-symbol can be neither T nor EQ to
+          ;; a covered member representing a different type.
+          ("exhaustiveness-arm-subsumed-p-cases non-symbol-arm-type" 42 (integer) nil)
+          ("exhaustiveness-arm-subsumed-p-cases non-symbol-covered-member" integer (42) nil))
     "~A"
     (name-ignored arm-type covered expected)
   (declare (ignore name-ignored))

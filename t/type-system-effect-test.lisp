@@ -5,7 +5,7 @@
 
 (in-package :cl-cc-type/test)
 
-(defbefore :each (cl-cc-type-serial-suite)
+(before-each
   (cl-cc/type:reset-type-vars!)
   (setf cl-cc/type:*typeclass-instance-registry* (make-hash-table :test #'equal)))
 
@@ -81,7 +81,7 @@
          (ast (make-ast-int :value 42)))
     (multiple-value-bind (ty _subst) (synthesize ast env)
       (declare (ignore _subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))
+      (expect ty :to-be-type-equal-to type-int))
     (expect (null (check ast type-int env)) :to-be-truthy)
     (expect (null (check ast cl-cc/type:+type-unknown+ env)) :to-be-truthy)))
 
@@ -121,24 +121,28 @@
       (expect (type-effect-row-p row) :to-be-truthy)
       (expect (length (type-effect-row-effects row)) :to-equal expected-count)
       (when expected-name
-        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))) :to-equal expected-name))))
+        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row))))
+                :to-equal expected-name))))
   (it-sequential "effect-row-singleton-cases io"
     (let ((row +io-effect-row+) (expected-count 1) (expected-name "IO"))
       (declare (ignorable row expected-count expected-name))
       (expect (type-effect-row-p row) :to-be-truthy)
       (expect (length (type-effect-row-effects row)) :to-equal expected-count)
       (when expected-name
-        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))) :to-equal expected-name))))
+        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row))))
+                :to-equal expected-name))))
   (it-sequential "effect-row-singleton-cases custom"
-    (let ((row (make-type-effect-row :effects (list (cl-cc/type:make-type-effect-op :name 'state :args nil)
-                                                      (cl-cc/type:make-type-effect-op :name 'error :args nil))
-                                      :row-var nil))
+    (let ((row (make-type-effect-row
+                :effects (list (cl-cc/type:make-type-effect-op :name 'state :args nil)
+                                (cl-cc/type:make-type-effect-op :name 'error :args nil))
+                :row-var nil))
           (expected-count 2) (expected-name nil))
       (declare (ignorable row expected-count expected-name))
       (expect (type-effect-row-p row) :to-be-truthy)
       (expect (length (type-effect-row-effects row)) :to-equal expected-count)
       (when expected-name
-        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row)))) :to-equal expected-name)))))
+        (expect (symbol-name (cl-cc/type:type-effect-op-name (first (type-effect-row-effects row))))
+                :to-equal expected-name)))))
 
 (progn
   (it-sequential "effect-row-to-string pure"
@@ -172,7 +176,7 @@
                                                   :rhs (cl-cc/ast:make-ast-int :value 2))
                         (cl-cc/ast:make-ast-lambda :params nil :body nil)))
       (let ((row (cl-cc/type:infer-effects ast (type-env-empty))))
-        (expect (type-equal-p row +pure-effect-row+) :to-be-truthy))))
+        (expect row :to-be-type-equal-to +pure-effect-row+))))
   (it-sequential "infer-effects-print-is-io"
     (let ((row (cl-cc/type:infer-effects
                 (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
@@ -232,10 +236,11 @@
                          :func (cl-cc/ast:make-ast-var :name 'a-totally-pure-fn)
                          :args (list (cl-cc/ast:make-ast-int :value 1)))
                         (type-env-empty))))
-      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "ERROR"))
+      (expect (some (lambda (op)
+                       (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "ERROR"))
                     (type-effect-row-effects known-row))
               :to-be-truthy)
-      (expect (type-equal-p unknown-row +pure-effect-row+) :to-be-truthy)))
+      (expect unknown-row :to-be-type-equal-to +pure-effect-row+)))
   (it-sequential "infer-effects-fallback-yields-fresh-row-var"
     (let ((row (cl-cc/type:infer-effects
                 (cl-cc/ast:make-ast-the :type 'fixnum :value (cl-cc/ast:make-ast-int :value 1))
@@ -249,7 +254,7 @@
          (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
          (type-env-empty))
       (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy)
+      (expect ty :to-be-type-equal-to type-int)
       (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "IO"))
                     (type-effect-row-effects effects))
               :to-be-truthy)))
@@ -263,7 +268,76 @@
         (cl-cc/type:check-body-effects
          (list (cl-cc/ast:make-ast-setq :var 'x :value (cl-cc/ast:make-ast-int :value 1)))
          +pure-effect-row+
-         (type-env-empty)))))
+         (type-env-empty))))
+  (it-sequential "infer-effects-pure-ast-nodes-defun-and-defvar"
+    (dolist (ast (list (cl-cc/ast:make-ast-defun
+                         :name 'f :params nil
+                         :body (list (cl-cc/ast:make-ast-int :value 1)))
+                        (cl-cc/ast:make-ast-defvar
+                         :name 'x :value (cl-cc/ast:make-ast-int :value 1))))
+      (let ((row (cl-cc/type:infer-effects ast (type-env-empty))))
+        (expect row :to-be-type-equal-to +pure-effect-row+))))
+  (it-sequential "infer-effects-call-with-non-var-func-defaults-base-to-pure"
+    (let ((pure-args-row (cl-cc/type:infer-effects
+                          (cl-cc/ast:make-ast-call
+                           :func (cl-cc/ast:make-ast-lambda :params nil :body nil)
+                           :args (list (cl-cc/ast:make-ast-int :value 1)))
+                          (type-env-empty)))
+          (io-args-row (cl-cc/type:infer-effects
+                        (cl-cc/ast:make-ast-call
+                         :func (cl-cc/ast:make-ast-lambda :params nil :body nil)
+                         :args (list (cl-cc/ast:make-ast-print
+                                      :expr (cl-cc/ast:make-ast-int :value 1))))
+                        (type-env-empty))))
+      (expect pure-args-row :to-be-type-equal-to +pure-effect-row+)
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "IO"))
+                    (type-effect-row-effects io-args-row))
+              :to-be-truthy)))
+  (it-sequential "infer-effects-if-unions-cond-only-effect"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-if
+                 :cond (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
+                 :then (cl-cc/ast:make-ast-int :value 2)
+                 :else (cl-cc/ast:make-ast-int :value 3))
+                (type-env-empty))))
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "IO"))
+                    (type-effect-row-effects row))
+              :to-be-truthy)))
+  (it-sequential "infer-effects-let-unions-body-only-effect"
+    (let ((row (cl-cc/type:infer-effects
+                (cl-cc/ast:make-ast-let
+                 :bindings (list (cons 'x (cl-cc/ast:make-ast-int :value 1)))
+                 :body (list (cl-cc/ast:make-ast-setq
+                              :var 'y :value (cl-cc/ast:make-ast-int :value 2))))
+                (type-env-empty))))
+      (expect (some (lambda (op) (string= (symbol-name (cl-cc/type:type-effect-op-name op)) "STATE"))
+                    (type-effect-row-effects row))
+              :to-be-truthy)))
+  (it-sequential "infer-with-effects-pure-ast-returns-pure-effects"
+    (multiple-value-bind (ty subst effects)
+        (cl-cc/type:infer-with-effects (cl-cc/ast:make-ast-int :value 42) (type-env-empty))
+      (declare (ignore subst))
+      (expect ty :to-be-type-equal-to type-int)
+      (expect effects :to-be-type-equal-to +pure-effect-row+)))
+  (it-sequential "check-body-effects-unions-multiple-forms-and-detects-missing-declared-effect"
+    ;; Reuse +io-effect-row+ (rather than building a fresh (make-type-effect-op
+    ;; :name 'io ...) here): the op-name symbol must be EQL to the one baked
+    ;; into the built-in IO row for effect-row-subset-p's MEMBER check to
+    ;; match, and an unquoted 'io read in this package would intern a
+    ;; different symbol than cl-cc/type::io.
+    (let ((declared +io-effect-row+))
+      (expect (null (cl-cc/type:check-body-effects
+                     (list (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
+                           (cl-cc/ast:make-ast-int :value 2))
+                     declared
+                     (type-env-empty)))
+              :to-be-truthy)
+      (signals type-inference-error
+          (cl-cc/type:check-body-effects
+           (list (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 1))
+                 (cl-cc/ast:make-ast-setq :var 'x :value (cl-cc/ast:make-ast-int :value 1)))
+           declared
+           (type-env-empty))))))
 
 ;;; Phase 6: Rank-N Polymorphism Tests
 
@@ -281,4 +355,4 @@
          (b  (fresh-type-var :name 'b))
          (fa (make-type-forall :var a :body (make-type-arrow (list a) a)))
          (fb (make-type-forall :var b :body (make-type-arrow (list b) b))))
-    (expect (type-equal-p fa fb) :to-be-falsy)))
+    (expect-not fa :to-be-type-equal-to fb)))

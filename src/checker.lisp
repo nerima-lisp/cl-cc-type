@@ -54,24 +54,12 @@
 ;;; Evaluated at load time to catch missing definitions early.
 
 (eval-when (:load-toplevel :execute)
-  (assert (fboundp 'synthesize)
-          nil
-          "checker.lisp: synthesize must be defined in bidirectional.lisp")
-  (assert (fboundp 'check)
-          nil
-          "checker.lisp: check must be defined in bidirectional.lisp")
-  (assert (fboundp 'check-body)
-          nil
-          "checker.lisp: check-body must be defined in bidirectional.lisp")
-  (assert (fboundp 'check-skolem-escape)
-          nil
-          "checker.lisp: check-skolem-escape must be defined in bidirectional.lisp")
-  (assert (fboundp 'skolem-appears-in-type-p)
-          nil
-          "checker.lisp: skolem-appears-in-type-p must be defined in bidirectional.lisp")
-  (assert (fboundp 'fresh-rigid-var)
-          nil
-          "checker.lisp: fresh-rigid-var must be defined in types-core.lisp"))
+  (assert-fboundp-in synthesize "bidirectional.lisp")
+  (assert-fboundp-in check "bidirectional.lisp")
+  (assert-fboundp-in check-body "bidirectional.lisp")
+  (assert-fboundp-in check-skolem-escape "bidirectional.lisp")
+  (assert-fboundp-in skolem-appears-in-type-p "bidirectional.lisp")
+  (assert-fboundp-in fresh-rigid-var "types-core.lisp"))
 
 (defun checker-interface-ready-p ()
   "Return T when the bidirectional checker boundary is fully wired.

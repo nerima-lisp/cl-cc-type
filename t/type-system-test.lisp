@@ -3,8 +3,9 @@
 ;;;; Comprehensive tests for the HM type system including:
 ;;;; - Type representation (primitives, variables, functions)
 ;;;; - Unification (with occurs check)
-;;;; - Type inference (Algorithm W)
-;;;; - Generalization and instantiation (let-polymorphism)
+;;;;
+;;;; Direct-dispatch AST inference tests (Algorithm W, generalization and
+;;;; instantiation, let-polymorphism) live in t/type-system-inference-test.lisp.
 
 (in-package :cl-cc-type/test)
 
@@ -87,7 +88,7 @@
       (funcall verify)))
   (it-sequential "type-repr-equality-and-strings primitive-distinct"
     (let ((verify (lambda ()
-                    (expect (type-equal-p type-int type-string) :to-be-falsy))))
+                    (expect-not type-int :to-be-type-equal-to type-string))))
       (declare (ignorable verify))
       (funcall verify)))
   (it-sequential "type-repr-equality-and-strings variable-self"
@@ -107,7 +108,7 @@
     (let ((verify (lambda ()
                     (let ((fn1 (make-type-arrow-raw :params (list type-int)    :return type-int))
                           (fn3 (make-type-arrow-raw :params (list type-string) :return type-int)))
-                      (expect (type-equal-p fn1 fn3) :to-be-falsy)))))
+                      (expect-not fn1 :to-be-type-equal-to fn3)))))
       (declare (ignorable verify))
       (funcall verify)))
   (it-sequential "type-repr-equality-and-strings arrow-to-string"
@@ -137,7 +138,7 @@
 
 
 (it-sequential "type-repr-unknown-type"
-  (expect (type-equal-p cl-cc/type:+type-unknown+ cl-cc/type:+type-unknown+) :to-be-falsy)
+  (expect-not cl-cc/type:+type-unknown+ :to-be-type-equal-to cl-cc/type:+type-unknown+)
   (expect (type-error-p cl-cc/type:+type-unknown+) :to-be-truthy))
 
 ;;; Unification Tests
@@ -241,335 +242,3 @@
     (let ((a cl-cc/type:+type-unknown+) (b cl-cc/type:+type-unknown+))
       (declare (ignorable a b))
       (expect-not b :to-unify-with a))))
-
-;;; ─── Direct-Dispatch AST Inference Tests (infer / synthesize / infer-with-env) ─
-;;;
-;;; The tests above exercise Algorithm W via the constraint-collection pipeline
-;;; (collect/solve). These tests instead drive the *direct-dispatch* inference
-;;; chain (the `infer` typecase dispatcher in inference-handlers.lisp and its
-;;; infer-* handlers in inference-forms.lisp / inference-forms-advanced-init.lisp)
-;;; by building AST nodes directly and calling infer / infer-with-env / synthesize.
-
-(it-sequential "infer-ast-int-is-type-int"
-  (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-int :value 42))
-    (declare (ignore subst))
-    (expect (type-equal-p ty type-int) :to-be-truthy)))
-
-(it-sequential "infer-ast-var-bound-and-unbound"
-  (let ((env (type-env-extend 'x (make-type-scheme nil type-int) (type-env-empty))))
-    (multiple-value-bind (ty subst) (infer (cl-cc/ast:make-ast-var :name 'x) env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy)))
-  (signals unbound-variable-error
-      (infer-with-env (cl-cc/ast:make-ast-var :name 'nowhere-to-be-found))))
-
-(progn
-  (it-sequential "infer-ast-quote-cases int"
-    (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-quote :value 7))
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy)))
-  (it-sequential "infer-ast-quote-cases string"
-    (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-quote :value "hi"))
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-string) :to-be-truthy)))
-  (it-sequential "infer-ast-quote-cases symbol"
-    (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-quote :value 'foo))
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-symbol) :to-be-truthy)))
-  (it-sequential "infer-ast-quote-cases cons"
-    (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-quote :value '(1 2)))
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-cons) :to-be-truthy)))
-  (it-sequential "infer-ast-quote-cases unknown-fallback"
-    (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-quote :value #\a))
-      (declare (ignore subst))
-      (expect (type-unknown-p ty) :to-be-truthy))))
-
-(it-sequential "infer-ast-if-unifies-matching-branches"
-  (let ((ast (cl-cc/ast:make-ast-if
-              :cond (cl-cc/ast:make-ast-var :name 'b)
-              :then (cl-cc/ast:make-ast-int :value 1)
-              :else (cl-cc/ast:make-ast-int :value 2)))
-        (env (type-env-extend 'b (make-type-scheme nil type-bool) (type-env-empty))))
-    (multiple-value-bind (ty subst) (infer ast env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-if-narrows-union-type-via-type-guard"
-  ;; env: v :: (or fixnum string). (if (integerp v) v 0) exercises the guard
-  ;; narrowing that binds v :: fixnum inside the then-branch (and, via
-  ;; %build-if-branch-envs / %narrow-else-env, narrows v to the remaining
-  ;; union member inside the else-branch even though it is unused there).
-  ;; Without narrowing, the then-branch's union-typed v would fail to unify
-  ;; with the else-branch's plain fixnum literal.
-  (let* ((union-ty (make-type-union (list type-int type-string)))
-         (env (type-env-extend 'v (make-type-scheme nil union-ty) (type-env-empty)))
-         (guard-cond (cl-cc/ast:make-ast-call
-                      :func (cl-cc/ast:make-ast-var :name 'integerp)
-                      :args (list (cl-cc/ast:make-ast-var :name 'v))))
-         (ast (cl-cc/ast:make-ast-if
-               :cond guard-cond
-               :then (cl-cc/ast:make-ast-var :name 'v)
-               :else (cl-cc/ast:make-ast-int :value 0))))
-    (multiple-value-bind (ty subst) (infer ast env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "extract-type-guard-recognizes-predicate-and-typep-patterns"
-  (let ((predicate-guard (cl-cc/ast:make-ast-call
-                           :func (cl-cc/ast:make-ast-var :name 'stringp)
-                           :args (list (cl-cc/ast:make-ast-var :name 'v))))
-        (typep-guard (cl-cc/ast:make-ast-call
-                      :func (cl-cc/ast:make-ast-var :name 'typep)
-                      :args (list (cl-cc/ast:make-ast-var :name 'v)
-                                  (cl-cc/ast:make-ast-quote :value 'point))))
-        (non-guard (cl-cc/ast:make-ast-var :name 'v)))
-    (multiple-value-bind (var ty) (extract-type-guard predicate-guard)
-      (expect var :to-be 'v)
-      (expect (type-equal-p ty type-string) :to-be-truthy))
-    (multiple-value-bind (var ty) (extract-type-guard typep-guard)
-      (expect var :to-be 'v)
-      (expect (type-primitive-p ty) :to-be-truthy)
-      (expect (type-primitive-name ty) :to-be 'point))
-    (multiple-value-bind (var ty) (extract-type-guard non-guard)
-      (expect var :to-be-null)
-      (expect ty :to-be-null))))
-
-(it-sequential "narrow-union-type-removes-and-collapses-members"
-  (let ((union-ty (make-type-union (list type-int type-string type-symbol))))
-    (let ((remaining (narrow-union-type union-ty type-int)))
-      (expect (type-union-p remaining) :to-be-truthy)
-      (expect (length (type-union-types remaining)) :to-equal 2)))
-  (let* ((two-ty (make-type-union (list type-int type-string)))
-         (remaining (narrow-union-type two-ty type-int)))
-    (expect (type-equal-p remaining type-string) :to-be-truthy))
-  ;; Non-union types pass through unchanged.
-  (expect (type-equal-p (narrow-union-type type-int type-string) type-int) :to-be-truthy))
-
-(it-sequential "register-and-lookup-type-predicate"
-  (let ((marker-type (make-type-primitive :name 'marker-test-type)))
-    (register-type-predicate 'marker-test-type-p marker-type)
-    (expect (type-equal-p (cl-cc/type::type-predicate-to-type 'marker-test-type-p) marker-type)
-            :to-be-truthy)))
-
-(it-sequential "infer-ast-let-generalizes-syntactic-values"
-  ;; (let ((x 1)) x) — x is bound to a syntactic value (int literal) and may be
-  ;; generalized under the value restriction (FR-1604).
-  (let ((ast (cl-cc/ast:make-ast-let
-              :bindings (list (cons 'x (cl-cc/ast:make-ast-int :value 1)))
-              :body (list (cl-cc/ast:make-ast-var :name 'x)))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-let-keeps-applications-monomorphic"
-  ;; (let ((x (f 1))) x) — x is bound to a call (not a syntactic value), so the
-  ;; value restriction keeps its scheme monomorphic.
-  (let* ((f-type (make-type-arrow (list type-int) type-int))
-         (env (type-env-extend 'f (make-type-scheme nil f-type) (type-env-empty)))
-         (ast (cl-cc/ast:make-ast-let
-               :bindings (list (cons 'x (cl-cc/ast:make-ast-call
-                                          :func (cl-cc/ast:make-ast-var :name 'f)
-                                          :args (list (cl-cc/ast:make-ast-int :value 1)))))
-               :body (list (cl-cc/ast:make-ast-var :name 'x)))))
-    (multiple-value-bind (ty subst) (infer ast env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "syntactic-value-p-classifies-ast-nodes"
-  (expect (syntactic-value-p (cl-cc/ast:make-ast-int :value 1)) :to-be-truthy)
-  (expect (syntactic-value-p (cl-cc/ast:make-ast-var :name 'x)) :to-be-truthy)
-  (expect (syntactic-value-p (cl-cc/ast:make-ast-quote :value 1)) :to-be-truthy)
-  (expect (syntactic-value-p (cl-cc/ast:make-ast-lambda :params nil :body nil)) :to-be-truthy)
-  (expect (syntactic-value-p
-           (cl-cc/ast:make-ast-call :func (cl-cc/ast:make-ast-var :name 'f) :args nil))
-          :to-be-falsy))
-
-(it-sequential "infer-ast-lambda-produces-arrow-type"
-  (let ((ast (cl-cc/ast:make-ast-lambda
-              :params '(x)
-              :body (list (cl-cc/ast:make-ast-var :name 'x)))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-arrow-p ty) :to-be-truthy)
-      (expect (= (length (type-arrow-params ty)) 1) :to-equal t))))
-
-(it-sequential "infer-ast-progn-returns-last-form-type"
-  (let ((ast (cl-cc/ast:make-ast-progn
-              :forms (list (cl-cc/ast:make-ast-int :value 1)
-                           (cl-cc/ast:make-ast-quote :value "last")))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-string) :to-be-truthy))))
-
-(it-sequential "infer-ast-print-returns-printed-expression-type"
-  (let ((ast (cl-cc/ast:make-ast-print :expr (cl-cc/ast:make-ast-int :value 9))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-the-matches-and-mismatches"
-  (let ((ok-ast (cl-cc/ast:make-ast-the :type 'fixnum :value (cl-cc/ast:make-ast-int :value 1))))
-    (multiple-value-bind (ty subst) (infer-with-env ok-ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy)))
-  (let ((bad-ast (cl-cc/ast:make-ast-the :type 'string :value (cl-cc/ast:make-ast-int :value 1))))
-    (signals type-mismatch-error (infer-with-env bad-ast))))
-
-(it-sequential "infer-ast-setq-declared-and-undeclared"
-  (let* ((env (type-env-extend 'x (make-type-scheme nil type-int) (type-env-empty)))
-         (ast (cl-cc/ast:make-ast-setq :var 'x :value (cl-cc/ast:make-ast-int :value 3))))
-    (multiple-value-bind (ty subst) (infer ast env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy)))
-  (let ((ast (cl-cc/ast:make-ast-setq :var 'undeclared :value (cl-cc/ast:make-ast-int :value 3))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-binop-adds-two-ints"
-  (let ((ast (cl-cc/ast:make-ast-binop :op '+
-                                       :lhs (cl-cc/ast:make-ast-int :value 1)
-                                       :rhs (cl-cc/ast:make-ast-int :value 2))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-defun-declared-and-inferred"
-  (let ((declared-ast (cl-cc/ast:make-ast-defun
-                        :name 'f
-                        :params '(x)
-                        :declarations (list '(type (-> fixnum fixnum) f))
-                        :body (list (cl-cc/ast:make-ast-var :name 'x)))))
-    (multiple-value-bind (ty subst) (infer-with-env declared-ast)
-      (declare (ignore subst))
-      (expect (type-arrow-p ty) :to-be-truthy)))
-  (let ((inferred-ast (cl-cc/ast:make-ast-defun
-                        :name nil
-                        :params '(x y)
-                        :body (list (cl-cc/ast:make-ast-binop
-                                     :op '+
-                                     :lhs (cl-cc/ast:make-ast-var :name 'x)
-                                     :rhs (cl-cc/ast:make-ast-var :name 'y))))))
-    (multiple-value-bind (ty subst) (infer-with-env inferred-ast)
-      (declare (ignore subst))
-      (expect (type-arrow-p ty) :to-be-truthy)
-      (expect (= (length (type-arrow-params ty)) 2) :to-equal t))))
-
-(it-sequential "infer-ast-defvar-always-type-symbol"
-  (expect (type-equal-p (infer-with-env (cl-cc/ast:make-ast-defvar :name '*x* :value nil))
-                        type-symbol)
-          :to-be-truthy)
-  (expect (type-equal-p (infer-with-env
-                          (cl-cc/ast:make-ast-defvar :name '*y*
-                                                     :value (cl-cc/ast:make-ast-int :value 1)))
-                        type-symbol)
-          :to-be-truthy))
-
-(it-sequential "infer-ast-function-found-and-not-found"
-  (let* ((f-type (make-type-arrow (list type-int) type-int))
-         (env (type-env-extend 'f (make-type-scheme nil f-type) (type-env-empty))))
-    (multiple-value-bind (ty subst) (infer (cl-cc/ast:make-ast-function :name 'f) env)
-      (declare (ignore subst))
-      (expect (type-arrow-p ty) :to-be-truthy)))
-  (multiple-value-bind (ty subst) (infer-with-env (cl-cc/ast:make-ast-function :name 'unknown-fn))
-    (declare (ignore subst))
-    (expect (type-unknown-p ty) :to-be-truthy)))
-
-(it-sequential "infer-ast-flet-binds-local-function"
-  (let ((ast (cl-cc/ast:make-ast-flet
-              :bindings (list (list 'f '(x) (cl-cc/ast:make-ast-var :name 'x)))
-              :body (list (cl-cc/ast:make-ast-call
-                           :func (cl-cc/ast:make-ast-var :name 'f)
-                           :args (list (cl-cc/ast:make-ast-int :value 5)))))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-labels-supports-mutual-reference"
-  ;; Both bindings are seeded with fresh type variables before either is
-  ;; inferred (pass 1), then inferred in binding order against that shared
-  ;; mutual environment (pass 2): h first (self-contained), then g (which
-  ;; calls h and therefore observes h's already-generalized scheme).
-  (let ((ast (cl-cc/ast:make-ast-labels
-              :bindings (list (list 'h '(y) (cl-cc/ast:make-ast-var :name 'y))
-                              (list 'g '(x)
-                                    (cl-cc/ast:make-ast-call
-                                     :func (cl-cc/ast:make-ast-var :name 'h)
-                                     :args (list (cl-cc/ast:make-ast-var :name 'x)))))
-              :body (list (cl-cc/ast:make-ast-call
-                           :func (cl-cc/ast:make-ast-var :name 'g)
-                           :args (list (cl-cc/ast:make-ast-int :value 1)))))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-block-and-return-from"
-  (let ((ast (cl-cc/ast:make-ast-block
-              :name 'blk
-              :body (list (cl-cc/ast:make-ast-return-from
-                           :name 'blk
-                           :value (cl-cc/ast:make-ast-int :value 1))))))
-    (multiple-value-bind (ty subst) (infer-with-env ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-defclass-defmethod-make-instance-slot-value"
-  (let ((defclass-ast (cl-cc/ast:make-ast-defclass
-                        :name 'point-test
-                        :slots (list (cl-cc/ast:make-ast-slot-def :name 'x :type 'fixnum)))))
-    (multiple-value-bind (ty subst) (infer-with-env defclass-ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-symbol) :to-be-truthy)))
-  (expect (type-equal-p (lookup-slot-type 'point-test 'x) type-int) :to-be-truthy)
-  (let ((defmethod-ast (cl-cc/ast:make-ast-defmethod
-                         :name 'area
-                         :specializers (list (cons 'obj 'point-test))
-                         :params '(obj)
-                         :body nil)))
-    (multiple-value-bind (ty subst) (infer-with-env defmethod-ast)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-symbol) :to-be-truthy)))
-  (expect (type-equal-p (lookup-class-method-type 'point-test 'area) type-any) :to-be-truthy)
-  (let ((make-instance-ast (cl-cc/ast:make-ast-make-instance
-                             :class (cl-cc/ast:make-ast-quote :value 'point-test)
-                             :initargs nil)))
-    (multiple-value-bind (ty subst) (infer-with-env make-instance-ast)
-      (declare (ignore subst))
-      (expect (type-primitive-p ty) :to-be-truthy)
-      (expect (type-primitive-name ty) :to-be 'point-test)))
-  (let* ((env (type-env-extend 'obj
-                               (make-type-scheme nil (make-type-primitive :name 'point-test))
-                               (type-env-empty)))
-         (slot-value-ast (cl-cc/ast:make-ast-slot-value
-                          :object (cl-cc/ast:make-ast-var :name 'obj)
-                          :slot 'x)))
-    (multiple-value-bind (ty subst) (infer slot-value-ast env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy))))
-
-(it-sequential "infer-ast-hole-signals-typed-hole-error"
-  (signals typed-hole-error
-      (infer-with-env (cl-cc/ast:make-ast-hole))))
-
-(it-sequential "infer-call-applies-function-and-checks-argument-types"
-  (let* ((f-type (make-type-arrow (list type-int) type-int))
-         (env (type-env-extend 'f (make-type-scheme nil f-type) (type-env-empty)))
-         (ok-ast (cl-cc/ast:make-ast-call
-                  :func (cl-cc/ast:make-ast-var :name 'f)
-                  :args (list (cl-cc/ast:make-ast-int :value 1)))))
-    (multiple-value-bind (ty subst) (infer ok-ast env)
-      (declare (ignore subst))
-      (expect (type-equal-p ty type-int) :to-be-truthy)))
-  (let* ((f-type (make-type-arrow (list type-int) type-int))
-         (env (type-env-extend 'f (make-type-scheme nil f-type) (type-env-empty)))
-         (bad-ast (cl-cc/ast:make-ast-call
-                   :func (cl-cc/ast:make-ast-var :name 'f)
-                   :args (list (cl-cc/ast:make-ast-quote :value "not an int")))))
-    (signals type-mismatch-error (infer bad-ast env))))
-
-(it-sequential "annotate-type-returns-inferred-type-and-original-ast"
-  (let ((ast (cl-cc/ast:make-ast-int :value 5)))
-    (multiple-value-bind (ty annotated) (annotate-type ast (type-env-empty))
-      (expect (type-equal-p ty type-int) :to-be-truthy)
-      (expect (eq annotated ast) :to-be-truthy))))

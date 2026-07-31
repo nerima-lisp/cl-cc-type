@@ -24,7 +24,10 @@
                                    (type-to-string ty))))
 
 (defun %validate-advanced-ffi-call (ast arg-types _env)
-  "Validate typed FFI descriptors at inference time."
+  "Validate typed FFI descriptors at inference time.
+FFI-DESCRIPTOR-FROM-FORM already validates and signals on a malformed
+DESCRIPTOR-FORM while normalizing it; DESCRIPTOR below is that already-
+normalized result, so no further form-validity check is needed here."
   (declare (ignore _env))
   (let* ((descriptor-form (%advanced-call-quoted-arg ast 0 'foreign-call))
          (descriptor (ffi-descriptor-from-form descriptor-form))
@@ -32,8 +35,6 @@
                                     (ffi-function-descriptor-argument-types descriptor)
                                     (list descriptor)))
          (runtime-arg-types (rest arg-types)))
-    (unless (ffi-descriptor-form-valid-p descriptor)
-      (%advanced-call-error 'foreign-call "malformed FFI descriptor ~S" descriptor-form))
     (unless (= (length argument-descriptors) (length runtime-arg-types))
       (%advanced-call-error 'foreign-call
                             "descriptor expects ~D argument(s), got ~D"

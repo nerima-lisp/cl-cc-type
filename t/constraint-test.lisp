@@ -12,19 +12,19 @@
     (expect (constraint-p c) :to-be-truthy)
     (expect (constraint-kind c) :to-be :equal)
     (expect (length (constraint-args c)) :to-equal 2)
-    (expect (type-equal-p type-int (first (constraint-args c))) :to-be-truthy)
-    (expect (type-equal-p type-string (second (constraint-args c))) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (first (constraint-args c)))
+    (expect type-string :to-be-type-equal-to (second (constraint-args c)))))
 
 (it-sequential "constraint-subtype-creation"
   (let ((c (make-subtype-constraint type-int type-any)))
     (expect (constraint-kind c) :to-be :subtype)
-    (expect (type-equal-p type-int (first (constraint-args c))) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (first (constraint-args c)))))
 
 (it-sequential "constraint-typeclass-creation"
   (let ((c (make-typeclass-constraint 'num type-int)))
     (expect (constraint-kind c) :to-be :typeclass)
     (expect (first (constraint-args c)) :to-be 'num)
-    (expect (type-equal-p type-int (second (constraint-args c))) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (second (constraint-args c)))))
 
 (it-sequential "constraint-implication-creation"
   (let* ((v (fresh-type-var :name "a"))
@@ -59,7 +59,8 @@
 
 (it-sequential "constraint-free-vars-binary-constraints subtype"
   (let* ((v1 (fresh-type-var :name "x")) (v2 (fresh-type-var :name "y")))
-    (expect (length (cl-cc/type:constraint-free-vars (make-subtype-constraint v1 v2))) :to-equal 2)))
+    (expect (length (cl-cc/type:constraint-free-vars (make-subtype-constraint v1 v2)))
+            :to-equal 2)))
 
 (it-sequential "constraint-free-vars-dedup-and-binding"
   (let* ((v  (fresh-type-var :name "a"))
@@ -77,7 +78,8 @@
 
 (it-sequential "constraint-free-vars-ground-types-empty"
   (expect (cl-cc/type:constraint-free-vars (make-mult-leq-constraint :one :omega)) :to-be-null)
-  (expect (cl-cc/type:constraint-free-vars (make-kind-equal-constraint +kind-type+ +kind-effect+)) :to-be-null))
+  (expect (cl-cc/type:constraint-free-vars (make-kind-equal-constraint +kind-type+ +kind-effect+))
+          :to-be-null))
 
 (it-sequential "constraint-free-vars-row-lacks with-var"
   (let* ((c (make-row-lacks-constraint (fresh-type-var :name "rho") 'x))
@@ -98,8 +100,8 @@
     (subst-extend! v type-string s)
     (let ((c2 (cl-cc/type:constraint-substitute c s)))
       (expect (constraint-kind c2) :to-be :equal)
-      (expect (type-equal-p type-string (first (constraint-args c2))) :to-be-truthy)
-      (expect (type-equal-p type-int (second (constraint-args c2))) :to-be-truthy))))
+      (expect type-string :to-be-type-equal-to (first (constraint-args c2)))
+      (expect type-int :to-be-type-equal-to (second (constraint-args c2))))))
 
 (it-sequential "constraint-substitute-subtype-applies-bindings"
   (let* ((v1 (fresh-type-var :name "a"))
@@ -109,8 +111,8 @@
     (subst-extend! v1 type-int s)
     (subst-extend! v2 type-any s)
     (let ((c2 (cl-cc/type:constraint-substitute c s)))
-      (expect (type-equal-p type-int (first (constraint-args c2))) :to-be-truthy)
-      (expect (type-equal-p type-any (second (constraint-args c2))) :to-be-truthy))))
+      (expect type-int :to-be-type-equal-to (first (constraint-args c2)))
+      (expect type-any :to-be-type-equal-to (second (constraint-args c2))))))
 
 (it-sequential "constraint-substitute-typeclass-applies-binding"
   (let* ((v  (fresh-type-var :name "a"))
@@ -119,7 +121,7 @@
     (subst-extend! v type-string s)
     (let ((c2 (cl-cc/type:constraint-substitute c s)))
       (expect (first (constraint-args c2)) :to-be 'show)
-      (expect (type-equal-p type-string (second (constraint-args c2))) :to-be-truthy))))
+      (expect type-string :to-be-type-equal-to (second (constraint-args c2))))))
 
 (it-sequential "constraint-substitute-ground-and-effect"
   (let ((s (make-substitution)))
@@ -182,7 +184,8 @@
     (expect (length (cl-cc/type:constraint-free-vars ctc)) :to-equal 1)))
 
 (it-sequential "constraint-free-vars-zero-vars mult-leq"
-  (expect (cl-cc/type:constraint-free-vars (cl-cc/type:make-mult-leq-constraint :one :omega)) :to-be-null))
+  (expect (cl-cc/type:constraint-free-vars (cl-cc/type:make-mult-leq-constraint :one :omega))
+          :to-be-null))
 
 (it-sequential "constraint-free-vars-zero-vars kind-equal"
   (expect (cl-cc/type:constraint-free-vars
@@ -203,7 +206,7 @@
          (subst (cl-cc/type:subst-extend tv type-int (cl-cc/type:make-substitution)))
          (c2    (cl-cc/type:constraint-substitute c subst)))
     (expect (cl-cc/type:constraint-kind c2) :to-be :equal)
-    (expect (type-equal-p type-int (first (cl-cc/type:constraint-args c2))) :to-be-truthy))
+    (expect type-int :to-be-type-equal-to (first (cl-cc/type:constraint-args c2))))
   (let* ((c     (cl-cc/type:make-mult-leq-constraint :one :omega))
          (c2    (cl-cc/type:constraint-substitute c (cl-cc/type:make-substitution))))
     (expect c2 :to-be c)))

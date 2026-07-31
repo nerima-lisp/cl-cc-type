@@ -9,7 +9,7 @@
 
 ;;; Condition Classes
 
-(define-simple-condition type-inference-error error
+(define-simple-condition type-inference-error type-system-error
   (message)
   "Type inference error: ~A" (type-inference-error-message condition))
 
@@ -19,10 +19,6 @@
 (define-simple-condition unbound-variable-error type-inference-error
   ((name nil))
   "Unbound variable: ~A" (unbound-variable-error-name condition))
-
-(defun unbound-variable-name (condition)
-  "Compatibility reader for UNBOUND-VARIABLE-ERROR variable names."
-  (unbound-variable-error-name condition))
 
 (define-simple-condition type-mismatch-error type-inference-error
   ((expected nil) (actual nil))

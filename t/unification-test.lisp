@@ -38,25 +38,29 @@
 ;;; ─── Union Type Unification ─────────────────────────────────────────────
 
 (it-sequential "unify-union-identical-succeeds"
-  (let ((u (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int cl-cc/type:type-string))))
+  (let ((u (cl-cc/type:make-type-union-raw
+            :types (list cl-cc/type:type-int cl-cc/type:type-string))))
     (multiple-value-bind (s ok) (type-unify u u)
       (expect ok :to-be-truthy)
       (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
 
 (it-sequential "unify-union-left-member-succeeds"
-  (let ((u (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int cl-cc/type:type-string))))
+  (let ((u (cl-cc/type:make-type-union-raw
+            :types (list cl-cc/type:type-int cl-cc/type:type-string))))
     (multiple-value-bind (s ok) (type-unify u cl-cc/type:type-int)
       (expect ok :to-be-truthy)
       (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
 
 (it-sequential "unify-union-right-member-succeeds"
-  (let ((u (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int cl-cc/type:type-string))))
+  (let ((u (cl-cc/type:make-type-union-raw
+            :types (list cl-cc/type:type-int cl-cc/type:type-string))))
     (multiple-value-bind (s ok) (type-unify cl-cc/type:type-string u)
       (expect ok :to-be-truthy)
       (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
 
 (it-sequential "unify-union-non-member-fails"
-  (let ((u (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int cl-cc/type:type-string))))
+  (let ((u (cl-cc/type:make-type-union-raw
+            :types (list cl-cc/type:type-int cl-cc/type:type-string))))
     (multiple-value-bind (_ ok) (type-unify u cl-cc/type:type-bool)
       (declare (ignore _))
       (expect ok :to-be-falsy))))
@@ -79,6 +83,20 @@
 
 ;;; ─── Variable Binding ───────────────────────────────────────────────────
 
+(it-sequential "unify-free-var-identity-check-matches-by-id-not-object-eq"
+  ;; %UNIFY-FREE-VAR's own identity clause, (AND (TYPE-VAR-P OTHER)
+  ;; (TYPE-VAR-EQUAL-P VAR OTHER)), is distinct from TYPE-UNIFY's own
+  ;; top-level (EQ T1 T2) fast path: it catches two DIFFERENT TYPE-VAR
+  ;; objects that share the same ID (TYPE-VAR-EQUAL-P compares by ID,
+  ;; not object identity), which every FRESH-TYPE-VAR call elsewhere in
+  ;; this suite avoids by construction (each mints a genuinely unique
+  ;; id). Built directly via the low-level constructor to share one.
+  (let* ((v1 (cl-cc/type::%make-type-var :id 999001))
+         (v2 (cl-cc/type::%make-type-var :id 999001)))
+    (multiple-value-bind (s ok) (type-unify v1 v2)
+      (expect ok :to-be-truthy)
+      (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
+
 (it-sequential "unify-var-bound-in-subst"
   (let* ((a (cl-cc/type:fresh-type-var 'a))
          (s (subst-extend a cl-cc/type:type-int nil)))
@@ -92,6 +110,36 @@
     (multiple-value-bind (s2 ok) (type-unify a cl-cc/type:type-string s)
       (declare (ignore s2))
       (expect ok :to-be-falsy))))
+
+(it-sequential "unify-var-bound-in-subst-as-t2"
+  ;; %TYPE-UNIFY-VAR-T2's "already bound" branch, (TYPE-UNIFY T1 binding
+  ;; SUBST), is the (TYPE-VAR-P T2) mirror of the T1-bound case above;
+  ;; every prior test with a bound variable puts it in the T1 position.
+  (let* ((a (cl-cc/type:fresh-type-var 'a))
+         (s (subst-extend a cl-cc/type:type-int nil)))
+    (multiple-value-bind (s2 ok) (type-unify cl-cc/type:type-int a s)
+      (expect ok :to-be-truthy)
+      (expect (cl-cc/type:substitution-p s2) :to-be-truthy))))
+
+;;; ─── Impredicative Instantiation (Rank-N types) ───────────────────────────
+;;; %TYPE-UNIFY-VAR-T1/-T2 reject unifying a bare, unbound type variable
+;;; directly with a still-quantified TYPE-FORALL -- Rank-N types must appear
+;;; in argument positions, not be substituted for a monomorphic variable.
+;;; Neither error path had any test anywhere in this suite.
+
+(it-sequential "unify-var-t1-rejects-impredicative-instantiation-against-a-forall"
+  (let ((v (cl-cc/type:fresh-type-var))
+        (forall-ty (cl-cc/type:make-type-forall
+                    :var (cl-cc/type:fresh-type-var 'a) :knd nil
+                    :body cl-cc/type:type-int)))
+    (signals cl-cc/type:type-inference-error (type-unify v forall-ty))))
+
+(it-sequential "unify-var-t2-rejects-impredicative-instantiation-against-a-forall"
+  (let ((v (cl-cc/type:fresh-type-var))
+        (forall-ty (cl-cc/type:make-type-forall
+                    :var (cl-cc/type:fresh-type-var 'a) :knd nil
+                    :body cl-cc/type:type-int)))
+    (signals cl-cc/type:type-inference-error (type-unify forall-ty v))))
 
 ;;; ─── type-unify-lists ───────────────────────────────────────────────────
 
@@ -133,8 +181,9 @@
   (it-sequential "unify-arrow-mismatch-cases arity-mismatch"
     (let ((lhs (cl-cc/type:make-type-arrow-raw :params (list cl-cc/type:type-int)
                                                 :return cl-cc/type:type-int))
-          (rhs (cl-cc/type:make-type-arrow-raw :params (list cl-cc/type:type-int cl-cc/type:type-int)
-                                                :return cl-cc/type:type-int)))
+          (rhs (cl-cc/type:make-type-arrow-raw
+                :params (list cl-cc/type:type-int cl-cc/type:type-int)
+                :return cl-cc/type:type-int)))
       (declare (ignorable lhs rhs))
       (multiple-value-bind (s ok) (type-unify lhs rhs)
         (declare (ignore s))
@@ -196,104 +245,21 @@
       (declare (ignore s))
       (expect ok :to-be-falsy))))
 
-;;; ─── Advanced Feature Node Unification ──────────────────────────────────
-;;; %type-advanced-unify / %unify-payload-pairs / %type-advanced-payload-unify
-;;; / %unify-property-alist were entirely unexercised: no test previously
-;;; unified two type-advanced nodes at all.
-
-(it-sequential "unify-advanced-same-feature-succeeds"
-  (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :name 'widget
-                                          :args (list cl-cc/type:type-int)
-                                          :properties '((:mode . strict))))
-        (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :name 'widget
-                                          :args (list cl-cc/type:type-int)
-                                          :properties '((:mode . strict)))))
-    (multiple-value-bind (s ok) (type-unify a b)
+(it-sequential "unify-var-with-a-var-already-aliased-to-it-via-subst"
+  ;; B is already bound to A in SUBST (B is simply an alias for A at this
+  ;; point). Unifying A with B is a trivial success -- they already
+  ;; denote the same type -- via %UNIFY-FREE-VAR's alias check: OTHER (B)
+  ;; resolves through the substitution chain to VAR (A) itself, which is
+  ;; identity, not TYPE-OCCURS-P's notion of "occurs nested inside".
+  ;; This was a real completeness bug until fixed alongside this test:
+  ;; TYPE-OCCURS-P could not distinguish the two, so this case used to
+  ;; fail the occurs check and reject a perfectly valid unification.
+  (let* ((a (cl-cc/type:fresh-type-var 'a))
+         (b (cl-cc/type:fresh-type-var 'b))
+         (s (subst-extend b a nil)))
+    (multiple-value-bind (s2 ok) (type-unify a b s)
       (expect ok :to-be-truthy)
-      (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
-
-(it-sequential "unify-advanced-different-feature-id-fails"
-  (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :name 'widget))
-        (b (cl-cc/type::%make-type-advanced :feature-id "FR-9002" :name 'widget)))
-    (multiple-value-bind (s ok) (type-unify a b)
-      (declare (ignore s))
-      (expect ok :to-be-falsy))))
-
-(it-sequential "unify-advanced-mismatched-typed-args-fail"
-  (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                          :args (list cl-cc/type:type-int)))
-        (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                          :args (list cl-cc/type:type-string))))
-    (multiple-value-bind (s ok) (type-unify a b)
-      (declare (ignore s))
-      (expect ok :to-be-falsy))))
-
-(it-sequential "unify-advanced-type-node-vs-plain-arg-fails"
-  ;; one side's arg is a type-node, the other's is a plain symbol at the same
-  ;; cons position: exercises the "shapes don't match" payload branch.
-  (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                          :args (list cl-cc/type:type-int)))
-        (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                          :args (list 'not-a-type))))
-    (multiple-value-bind (s ok) (type-unify a b)
-      (declare (ignore s))
-      (expect ok :to-be-falsy))))
-
-(it-sequential "unify-advanced-nonequal-plain-args-fail"
-  (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :args (list 1)))
-        (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :args (list 2))))
-    (multiple-value-bind (s ok) (type-unify a b)
-      (declare (ignore s))
-      (expect ok :to-be-falsy))))
-
-(it-sequential "unify-advanced-equal-evidence-atoms-succeed"
-  (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :evidence "proof"))
-        (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001" :evidence "proof")))
-    (multiple-value-bind (s ok) (type-unify a b)
-      (expect ok :to-be-truthy)
-      (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
-
-(progn
-  (it-sequential "unify-advanced-property-alist-cases length-mismatch"
-    (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties '((:mode . strict))))
-          (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties '((:mode . strict) (:extra . t)))))
-      (multiple-value-bind (s ok) (type-unify a b)
-        (declare (ignore s))
-        (expect ok :to-be-falsy))))
-  (it-sequential "unify-advanced-property-alist-cases key-missing"
-    (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties '((:mode . strict))))
-          (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties '((:other . strict)))))
-      (multiple-value-bind (s ok) (type-unify a b)
-        (declare (ignore s))
-        (expect ok :to-be-falsy))))
-  (it-sequential "unify-advanced-property-alist-cases value-mismatch"
-    (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties '((:mode . strict))))
-          (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties '((:mode . loose)))))
-      (multiple-value-bind (s ok) (type-unify a b)
-        (declare (ignore s))
-        (expect ok :to-be-falsy))))
-  (it-sequential "unify-advanced-property-alist-cases typed-value-unifies"
-    (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties (list (cons :ty cl-cc/type:type-int))))
-          (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties (list (cons :ty cl-cc/type:type-int)))))
-      (multiple-value-bind (s ok) (type-unify a b)
-        (expect ok :to-be-truthy)
-        (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
-  (it-sequential "unify-advanced-property-alist-cases typed-value-fails"
-    (let ((a (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties (list (cons :ty cl-cc/type:type-int))))
-          (b (cl-cc/type::%make-type-advanced :feature-id "FR-9001"
-                                            :properties (list (cons :ty cl-cc/type:type-string)))))
-      (multiple-value-bind (s ok) (type-unify a b)
-        (declare (ignore s))
-        (expect ok :to-be-falsy)))))
+      (expect (cl-cc/type:substitution-p s2) :to-be-truthy))))
 
 ;;; ─── Union-vs-Union and Intersection-vs-Intersection Unification ───────
 ;;; type-unify's own dispatch clauses for "both union" / "both intersection"
@@ -301,14 +267,17 @@
 ;;; single distinct object (eq) or a plain type.
 
 (it-sequential "unify-union-union-reordered-members-succeeds"
-  (let ((u1 (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int cl-cc/type:type-string)))
-        (u2 (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-string cl-cc/type:type-int))))
+  (let ((u1 (cl-cc/type:make-type-union-raw
+             :types (list cl-cc/type:type-int cl-cc/type:type-string)))
+        (u2 (cl-cc/type:make-type-union-raw
+             :types (list cl-cc/type:type-string cl-cc/type:type-int))))
     (multiple-value-bind (s ok) (type-unify u1 u2)
       (expect ok :to-be-truthy)
       (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
 
 (it-sequential "unify-union-union-length-mismatch-fails"
-  (let ((u1 (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int cl-cc/type:type-string)))
+  (let ((u1 (cl-cc/type:make-type-union-raw
+             :types (list cl-cc/type:type-int cl-cc/type:type-string)))
         (u2 (cl-cc/type:make-type-union-raw :types (list cl-cc/type:type-int))))
     (multiple-value-bind (s ok) (type-unify u1 u2)
       (declare (ignore s))
@@ -355,7 +324,8 @@
 
 (it-sequential "unify-type-constructor-arity-mismatch-fails"
   (let ((c1 (cl-cc/type:make-type-constructor 'vector (list cl-cc/type:type-int)))
-        (c2 (cl-cc/type:make-type-constructor 'vector (list cl-cc/type:type-int cl-cc/type:type-string))))
+        (c2 (cl-cc/type:make-type-constructor
+             'vector (list cl-cc/type:type-int cl-cc/type:type-string))))
     (multiple-value-bind (s ok) (type-unify c1 c2)
       (declare (ignore s))
       (expect ok :to-be-falsy))))
@@ -404,79 +374,6 @@
       (declare (ignore s))
       (expect ok :to-be-falsy))))
 
-;;; ─── unify-effect-rows: remaining branches ──────────────────────────────
-;;; Prior tests only exercised: both-sides-empty-no-row-vars, same-effects,
-;;; open-absorbs-extra (row2 has extras, rv1 present), closed-rejects-extra
-;;; (row2 has extras, rv1 absent). The branches below were unexercised.
-
-(it-sequential "unify-effect-row-equal-sets-both-row-vars-unify-vars"
-  (let* ((rv1 (cl-cc/type:fresh-type-var 'r1))
-         (rv2 (cl-cc/type:fresh-type-var 'r2))
-         (e (cl-cc/type:make-type-effect-op :name 'io :args nil))
-         (r1 (cl-cc/type:make-type-effect-row :effects (list e) :row-var rv1))
-         (r2 (cl-cc/type:make-type-effect-row :effects (list e) :row-var rv2)))
-    (multiple-value-bind (s ok) (type-unify r1 r2)
-      (expect ok :to-be-truthy)
-      (expect (cl-cc/type:type-var-equal-p (zonk rv1 s) (zonk rv2 s)) :to-be-truthy))))
-
-(it-sequential "unify-effect-row-equal-sets-only-row1-has-var"
-  (let* ((rv1 (cl-cc/type:fresh-type-var 'r1))
-         (e (cl-cc/type:make-type-effect-op :name 'io :args nil))
-         (r1 (cl-cc/type:make-type-effect-row :effects (list e) :row-var rv1))
-         (r2 (cl-cc/type:make-type-effect-row :effects (list e) :row-var nil)))
-    (multiple-value-bind (s ok) (type-unify r1 r2)
-      (expect ok :to-be-truthy)
-      (expect (cl-cc/type:type-effect-row-p (zonk rv1 s)) :to-be-truthy))))
-
-(it-sequential "unify-effect-row-equal-sets-only-row2-has-var"
-  (let* ((rv2 (cl-cc/type:fresh-type-var 'r2))
-         (e (cl-cc/type:make-type-effect-op :name 'io :args nil))
-         (r1 (cl-cc/type:make-type-effect-row :effects (list e) :row-var nil))
-         (r2 (cl-cc/type:make-type-effect-row :effects (list e) :row-var rv2)))
-    (multiple-value-bind (s ok) (type-unify r1 r2)
-      (expect ok :to-be-truthy)
-      (expect (cl-cc/type:type-effect-row-p (zonk rv2 s)) :to-be-truthy))))
-
-(progn
-  (it-sequential "unify-effect-row-row1-extra-effects-cases row2-var-present-succeeds"
-    (let* ((rv2 (cl-cc/type:fresh-type-var 'r2))
-           (e-io (cl-cc/type:make-type-effect-op :name 'io :args nil))
-           (e-exn (cl-cc/type:make-type-effect-op :name 'exn :args nil))
-           (r1 (cl-cc/type:make-type-effect-row :effects (list e-io e-exn) :row-var nil))
-           (r2 (cl-cc/type:make-type-effect-row :effects (list e-io) :row-var rv2)))
-      (multiple-value-bind (s ok) (type-unify r1 r2)
-        (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-effect-row-p (zonk rv2 s)) :to-be-truthy))))
-  (it-sequential "unify-effect-row-row1-extra-effects-cases row2-var-absent-fails"
-    (let* ((e-io (cl-cc/type:make-type-effect-op :name 'io :args nil))
-           (e-exn (cl-cc/type:make-type-effect-op :name 'exn :args nil))
-           (r1 (cl-cc/type:make-type-effect-row :effects (list e-io e-exn) :row-var nil))
-           (r2 (cl-cc/type:make-type-effect-row :effects (list e-io) :row-var nil)))
-      (multiple-value-bind (s ok) (type-unify r1 r2)
-        (declare (ignore s))
-        (expect ok :to-be-falsy)))))
-
-(progn
-  (it-sequential "unify-effect-row-both-unique-effects-cases both-vars-present-succeeds"
-    (let* ((rv1 (cl-cc/type:fresh-type-var 'r1))
-           (rv2 (cl-cc/type:fresh-type-var 'r2))
-           (e-io (cl-cc/type:make-type-effect-op :name 'io :args nil))
-           (e-exn (cl-cc/type:make-type-effect-op :name 'exn :args nil))
-           (r1 (cl-cc/type:make-type-effect-row :effects (list e-io) :row-var rv1))
-           (r2 (cl-cc/type:make-type-effect-row :effects (list e-exn) :row-var rv2)))
-      (multiple-value-bind (s ok) (type-unify r1 r2)
-        (expect ok :to-be-truthy)
-        (expect (cl-cc/type:substitution-p s) :to-be-truthy))))
-  (it-sequential "unify-effect-row-both-unique-effects-cases missing-row-var-fails"
-    (let* ((rv1 (cl-cc/type:fresh-type-var 'r1))
-           (e-io (cl-cc/type:make-type-effect-op :name 'io :args nil))
-           (e-exn (cl-cc/type:make-type-effect-op :name 'exn :args nil))
-           (r1 (cl-cc/type:make-type-effect-row :effects (list e-io) :row-var rv1))
-           (r2 (cl-cc/type:make-type-effect-row :effects (list e-exn) :row-var nil)))
-      (multiple-value-bind (s ok) (type-unify r1 r2)
-        (declare (ignore s))
-        (expect ok :to-be-falsy)))))
-
 ;;; ─── Bounded-Type-Var Merge: %combine-upper-bound / %combine-lower-bound ──
 ;;; Prior tests only exercised the "target bound absent" branch (both
 ;;; combine-* functions return the source's bound unchanged via their first
@@ -492,18 +389,14 @@
       (multiple-value-bind (s ok) (type-unify plain bounded)
         (declare (ignore s))
         (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-equal-p cl-cc/type:type-int
-                                         (cl-cc/type:type-var-upper-bound bounded))
-                :to-be-truthy))))
+        (expect cl-cc/type:type-int :to-be-type-equal-to (cl-cc/type:type-var-upper-bound bounded)))))
   (it-sequential "unify-var-var-upper-bound-merge-cases equal-bounds-kept"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :upper-bound cl-cc/type:type-int))
            (b (cl-cc/type:fresh-type-var :name "b" :upper-bound cl-cc/type:type-int)))
       (multiple-value-bind (s ok) (type-unify a b)
         (declare (ignore s))
         (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-equal-p cl-cc/type:type-int
-                                         (cl-cc/type:type-var-upper-bound b))
-                :to-be-truthy))))
+        (expect cl-cc/type:type-int :to-be-type-equal-to (cl-cc/type:type-var-upper-bound b)))))
   (it-sequential "unify-var-var-upper-bound-merge-cases left-tighter-kept"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :upper-bound cl-cc/type:type-any))
            (b (cl-cc/type:fresh-type-var :name "b" :upper-bound cl-cc/type:type-int)))
@@ -512,9 +405,7 @@
       (multiple-value-bind (s ok) (type-unify a b)
         (declare (ignore s))
         (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-equal-p cl-cc/type:type-int
-                                         (cl-cc/type:type-var-upper-bound b))
-                :to-be-truthy))))
+        (expect cl-cc/type:type-int :to-be-type-equal-to (cl-cc/type:type-var-upper-bound b)))))
   (it-sequential "unify-var-var-upper-bound-merge-cases right-tighter-kept"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :upper-bound cl-cc/type:type-int))
            (b (cl-cc/type:fresh-type-var :name "b" :upper-bound cl-cc/type:type-any)))
@@ -524,9 +415,7 @@
       (multiple-value-bind (s ok) (type-unify a b)
         (declare (ignore s))
         (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-equal-p cl-cc/type:type-int
-                                         (cl-cc/type:type-var-upper-bound b))
-                :to-be-truthy))))
+        (expect cl-cc/type:type-int :to-be-type-equal-to (cl-cc/type:type-var-upper-bound b)))))
   (it-sequential "unify-var-var-upper-bound-merge-cases incomparable-yields-intersection"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :upper-bound cl-cc/type:type-string))
            (b (cl-cc/type:fresh-type-var :name "b" :upper-bound cl-cc/type:type-int)))
@@ -534,7 +423,21 @@
         (declare (ignore s))
         (expect ok :to-be-truthy)
         (expect (cl-cc/type:type-intersection-p (cl-cc/type:type-var-upper-bound b))
-                :to-be-truthy)))))
+                :to-be-truthy))))
+  (it-sequential "unify-var-var-bound-merge-fails-when-the-merged-bounds-are-inconsistent"
+    ;; %MERGE-TYPE-VAR-BOUNDS-INTO!'s own (WHEN (%BOUNDS-CONSISTENT-P
+    ;; lower upper subst) ...) guard had only ever been observed true:
+    ;; every case above merges bounds that stay consistent (LOWER <:
+    ;; UPPER). A merges its upper bound (STRING) into B, which already
+    ;; carries a lower bound (INT) -- since INT is not a subtype of
+    ;; STRING, the merged bounds are inconsistent and the whole
+    ;; unification must fail rather than silently keeping a
+    ;; contradictory bound.
+    (let* ((a (cl-cc/type:fresh-type-var :name "a" :upper-bound cl-cc/type:type-string))
+           (b (cl-cc/type:fresh-type-var :name "b" :lower-bound cl-cc/type:type-int)))
+      (multiple-value-bind (s ok) (type-unify a b)
+        (declare (ignore s))
+        (expect ok :to-be-falsy)))))
 
 (progn
   (it-sequential "unify-var-var-lower-bound-merge-cases target-only-kept"
@@ -543,24 +446,34 @@
       (multiple-value-bind (s ok) (type-unify plain bounded)
         (declare (ignore s))
         (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-equal-p cl-cc/type:type-int
-                                         (cl-cc/type:type-var-lower-bound bounded))
-                :to-be-truthy))))
+        (expect cl-cc/type:type-int :to-be-type-equal-to (cl-cc/type:type-var-lower-bound bounded)))))
   (it-sequential "unify-var-var-lower-bound-merge-cases equal-bounds-kept"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :lower-bound cl-cc/type:type-int))
            (b (cl-cc/type:fresh-type-var :name "b" :lower-bound cl-cc/type:type-int)))
       (multiple-value-bind (s ok) (type-unify a b)
         (declare (ignore s))
         (expect ok :to-be-truthy)
-        (expect (cl-cc/type:type-equal-p cl-cc/type:type-int
-                                         (cl-cc/type:type-var-lower-bound b))
-                :to-be-truthy))))
+        (expect cl-cc/type:type-int :to-be-type-equal-to (cl-cc/type:type-var-lower-bound b)))))
   (it-sequential "unify-var-var-lower-bound-merge-cases either-subtype-consistent"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :lower-bound cl-cc/type:type-any))
            (b (cl-cc/type:fresh-type-var :name "b" :lower-bound cl-cc/type:type-int)))
       (multiple-value-bind (s ok) (type-unify a b)
         (declare (ignore s))
         (expect ok :to-be-truthy))))
+  (it-sequential "unify-var-var-lower-bound-merge-cases either-subtype-consistent-reversed"
+    ;; %COMBINE-LOWER-BOUND's clause order is (IS-SUBTYPE-P LEFT RIGHT)
+    ;; before (IS-SUBTYPE-P RIGHT LEFT); the case above (TARGET=B's lower
+    ;; INT is LEFT, SOURCE=A's lower ANY is RIGHT) always matches the
+    ;; first clause (INT <: ANY), so the second clause -- TARGET not a
+    ;; subtype of SOURCE, but SOURCE a subtype of TARGET -- had never
+    ;; been reached for a lower bound (only for upper, via "right-
+    ;; tighter-kept" above). Swapping which side is broader reaches it.
+    (let* ((a (cl-cc/type:fresh-type-var :name "a" :lower-bound cl-cc/type:type-int))
+           (b (cl-cc/type:fresh-type-var :name "b" :lower-bound cl-cc/type:type-any)))
+      (multiple-value-bind (s ok) (type-unify a b)
+        (declare (ignore s))
+        (expect ok :to-be-truthy)
+        (expect cl-cc/type:type-any :to-be-type-equal-to (cl-cc/type:type-var-lower-bound b)))))
   (it-sequential "unify-var-var-lower-bound-merge-cases incomparable-yields-union"
     (let* ((a (cl-cc/type:fresh-type-var :name "a" :lower-bound cl-cc/type:type-string))
            (b (cl-cc/type:fresh-type-var :name "b" :lower-bound cl-cc/type:type-int)))

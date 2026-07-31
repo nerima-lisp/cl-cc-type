@@ -19,7 +19,7 @@
 (it-sequential
   "collect-int-literal"
   (multiple-value-bind (ty cs) (collect (cl-cc/ast:make-ast-int :value 42))
-    (expect (type-equal-p type-int ty) :to-be-truthy)
+    (expect type-int :to-be-type-equal-to ty)
     (expect cs :to-be-null)))
 
 ;;; ─── ast-var → instantiated scheme ──────────────────────────────────────────
@@ -28,7 +28,7 @@
   (let* ((env
         (cl-cc/type:type-env-extend 'x (cl-cc/type:type-to-scheme type-int) (empty-env))))
     (multiple-value-bind (ty cs) (collect-in (cl-cc/ast:make-ast-var :name 'x) env)
-      (expect (type-equal-p type-int ty) :to-be-truthy)
+      (expect type-int :to-be-type-equal-to ty)
       (expect cs :to-be-null))))
 
 (it-sequential
@@ -41,19 +41,19 @@
 (progn
   (it-sequential "collect-quote-literal-types integer"
     (multiple-value-bind (ty cs) (collect (cl-cc/ast:make-ast-quote :value 42))
-      (expect (type-equal-p (symbol-value 'type-int) ty) :to-be-truthy)
+      (expect (symbol-value 'type-int) :to-be-type-equal-to ty)
       (expect cs :to-be-null)))
   (it-sequential "collect-quote-literal-types string"
     (multiple-value-bind (ty cs) (collect (cl-cc/ast:make-ast-quote :value "hi"))
-      (expect (type-equal-p (symbol-value 'type-string) ty) :to-be-truthy)
+      (expect (symbol-value 'type-string) :to-be-type-equal-to ty)
       (expect cs :to-be-null)))
   (it-sequential "collect-quote-literal-types symbol"
     (multiple-value-bind (ty cs) (collect (cl-cc/ast:make-ast-quote :value 'foo))
-      (expect (type-equal-p (symbol-value 'type-symbol) ty) :to-be-truthy)
+      (expect (symbol-value 'type-symbol) :to-be-type-equal-to ty)
       (expect cs :to-be-null)))
   (it-sequential "collect-quote-literal-types cons"
     (multiple-value-bind (ty cs) (collect (cl-cc/ast:make-ast-quote :value '(1 2)))
-      (expect (type-equal-p (symbol-value 'type-cons) ty) :to-be-truthy)
+      (expect (symbol-value 'type-cons) :to-be-type-equal-to ty)
       (expect cs :to-be-null))))
 
 (it-sequential
@@ -95,7 +95,7 @@
         :body
         (list (cl-cc/ast:make-ast-int :value 99))))
     (declare (ignore _cs))
-    (expect (type-equal-p type-int ty) :to-be-truthy))
+    (expect type-int :to-be-type-equal-to ty))
   (multiple-value-bind (ty _cs) (collect
       (cl-cc/ast:make-ast-let
         :bindings
@@ -103,7 +103,7 @@
         :body
         (list (cl-cc/ast:make-ast-var :name 'n))))
     (declare (ignore _cs))
-    (expect (type-equal-p type-int ty) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to ty)))
 
 ;;; ─── ast-lambda → type-arrow ─────────────────────────────────────────────────
 (it-sequential
@@ -117,7 +117,7 @@
     (declare (ignore _cs))
     (expect (cl-cc/type:type-arrow-p ty) :to-be-truthy)
     (expect (cl-cc/type:type-arrow-params ty) :to-be-null)
-    (expect (type-equal-p type-int (cl-cc/type:type-arrow-return ty)) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (cl-cc/type:type-arrow-return ty))))
 
 (it-sequential
   "collect-lambda-one-param-yields-arrow-with-one-param"
@@ -135,9 +135,7 @@
   "collect-lambda-empty-body-yields-null-return-type"
   (multiple-value-bind (ty _cs) (collect (cl-cc/ast:make-ast-lambda :params '() :body '()))
     (declare (ignore _cs))
-    (expect
-      (type-equal-p type-null (cl-cc/type:type-arrow-return ty))
-      :to-be-truthy)))
+    (expect type-null :to-be-type-equal-to (cl-cc/type:type-arrow-return ty))))
 
 ;;; ─── ast-call → ret type-var + arrow constraint ──────────────────────────────
 (it-sequential
@@ -169,13 +167,13 @@
   "collect-progn-behavior"
   (multiple-value-bind (ty _cs) (collect (cl-cc/ast:make-ast-progn :forms '()))
     (declare (ignore _cs))
-    (expect (type-equal-p type-null ty) :to-be-truthy))
+    (expect type-null :to-be-type-equal-to ty))
   (multiple-value-bind (ty _cs) (collect
       (cl-cc/ast:make-ast-progn
         :forms
         (list (cl-cc/ast:make-ast-int :value 1) (cl-cc/ast:make-ast-int :value 2))))
     (declare (ignore _cs))
-    (expect (type-equal-p type-int ty) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to ty)))
 
 ;;; ─── ast-defun → type-symbol ─────────────────────────────────────────────────
 (it-sequential
@@ -189,7 +187,7 @@
         :body
         (list (cl-cc/ast:make-ast-int :value 0))))
     (declare (ignore _cs))
-    (expect (type-equal-p type-symbol ty) :to-be-truthy)))
+    (expect type-symbol :to-be-type-equal-to ty)))
 
 ;;; ─── ast-defvar ──────────────────────────────────────────────────────────────
 (it-sequential
@@ -197,10 +195,10 @@
   (multiple-value-bind (ty _cs) (collect
       (cl-cc/ast:make-ast-defvar :name '*x* :value (cl-cc/ast:make-ast-int :value 0)))
     (declare (ignore _cs))
-    (expect (type-equal-p type-symbol ty) :to-be-truthy))
+    (expect type-symbol :to-be-type-equal-to ty))
   (multiple-value-bind (ty _cs) (collect (cl-cc/ast:make-ast-defvar :name '*x* :value nil))
     (declare (ignore _cs))
-    (expect (type-equal-p type-symbol ty) :to-be-truthy)))
+    (expect type-symbol :to-be-type-equal-to ty)))
 
 ;;; ─── ast-setq ────────────────────────────────────────────────────────────────
 (it-sequential
@@ -210,12 +208,12 @@
     (multiple-value-bind (ty cs) (collect-in
         (cl-cc/ast:make-ast-setq :var 'n :value (cl-cc/ast:make-ast-int :value 99))
         env)
-      (expect (type-equal-p type-int ty) :to-be-truthy)
+      (expect type-int :to-be-type-equal-to ty)
       (expect (length cs) :to-equal 1)
       (expect (cl-cc/type:constraint-kind (first cs)) :to-be :equal)))
   (multiple-value-bind (ty cs) (collect
       (cl-cc/ast:make-ast-setq :var 'unbound :value (cl-cc/ast:make-ast-int :value 0)))
-    (expect (type-equal-p type-int ty) :to-be-truthy)
+    (expect type-int :to-be-type-equal-to ty)
     (expect cs :to-be-null)))
 
 ;;; ─── gradual-typing fallback (t arm) ─────────────────────────────────────────

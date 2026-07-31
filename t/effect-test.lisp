@@ -42,30 +42,46 @@
       (expect (cl-cc/type:lookup-effect 'test-eff) :to-be ed))
     (expect (cl-cc/type:lookup-effect 'nonexistent) :to-be-null)))
 
+;;; ─── %effect-node-name ──────────────────────────────────────────────────────
+;;; Every EFFECTS list built across this file's tests contains only genuine
+;;; TYPE-EFFECT-OP nodes, so %EFFECT-NODE-NAME's error arm was untested.
+
+(it-sequential "effect-node-name-signals-for-a-non-effect-op"
+  (signals error
+      (cl-cc/type::%effect-node-name "not-an-effect-op")))
+
 ;;; ─── effect-row-union ───────────────────────────────────────────────────────
 
 (it-sequential "effect-row-union-behavior"
   (expect (length (type-effect-row-effects
-                    (cl-cc/type:effect-row-union (make-effect-row :io) (make-effect-row :state)))) :to-equal 2)
+                    (cl-cc/type:effect-row-union (make-effect-row :io) (make-effect-row :state))))
+          :to-equal 2)
   (expect (length (type-effect-row-effects
-                    (cl-cc/type:effect-row-union (make-effect-row :io :state) (make-effect-row :io :exn)))) :to-equal 3)
+                    (cl-cc/type:effect-row-union (make-effect-row :io :state)
+                                                  (make-effect-row :io :exn))))
+          :to-equal 3)
   (expect (type-effect-row-effects
            (cl-cc/type:effect-row-union (make-effect-row) (make-effect-row))) :to-be-null)
   (let* ((rv (fresh-type-var))
-         (result (cl-cc/type:effect-row-union (make-effect-row :io) (make-open-effect-row rv :state))))
+         (result (cl-cc/type:effect-row-union (make-effect-row :io)
+                                               (make-open-effect-row rv :state))))
     (expect (type-var-p (type-effect-row-row-var result)) :to-be-truthy)))
 
 ;;; ─── effect-row-subset-p ────────────────────────────────────────────────────
 
 (it-sequential "effect-row-subset-p-behavior"
   (with-soft-assertions
-    (expect (cl-cc/type:effect-row-subset-p (make-effect-row) (make-effect-row :io :state)) :to-be-truthy)
+    (expect (cl-cc/type:effect-row-subset-p (make-effect-row) (make-effect-row :io :state))
+            :to-be-truthy)
     (let ((r (make-effect-row :io :state)))
       (expect (cl-cc/type:effect-row-subset-p r r) :to-be-truthy))
-    (expect (cl-cc/type:effect-row-subset-p (make-effect-row :io) (make-effect-row :io :state)) :to-be-truthy)
-    (expect (cl-cc/type:effect-row-subset-p (make-effect-row :io :state) (make-effect-row :io)) :to-be-falsy)
+    (expect (cl-cc/type:effect-row-subset-p (make-effect-row :io) (make-effect-row :io :state))
+            :to-be-truthy)
+    (expect (cl-cc/type:effect-row-subset-p (make-effect-row :io :state) (make-effect-row :io))
+            :to-be-falsy)
     (expect (cl-cc/type:effect-row-subset-p (make-effect-row :io :state :exn)
-                                              (make-open-effect-row (fresh-type-var))) :to-be-truthy)))
+                                             (make-open-effect-row (fresh-type-var)))
+            :to-be-truthy)))
 
 (it-sequential "effect-row-extend"
   (let* ((op  (cl-cc/type:make-type-effect-op :name 'state :args nil))

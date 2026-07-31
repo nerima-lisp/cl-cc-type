@@ -180,12 +180,35 @@
                                                 (cons 'err type-string))
                                   :row-var nil)))
     (expect (cl-cc/type:is-subtype-p small large) :to-be-truthy)
-    (expect (cl-cc/type:is-subtype-p large small) :to-be-falsy)))
+    (expect (cl-cc/type:is-subtype-p large small) :to-be-falsy)
+    ;; Both cases above have T2 typep TYPE-VARIANT, so the TYPE-VARIANT
+    ;; clause's (AND (TYPEP T2 'TYPE-VARIANT) ...) always short-circuits
+    ;; via the nested %SUBTYPE-ROW-P check, never via TYPEP itself being
+    ;; false. A union containing SMALL is not a TYPE-VARIANT, so this
+    ;; reaches %IS-SUBTYPE-P-BY-T2 via that other path, and exercises its
+    ;; TYPE-UNION clause with a real match.
+    (expect (cl-cc/type:is-subtype-p
+             small (cl-cc/type:make-type-union (list small type-string)))
+            :to-be-truthy)))
 
 (it-sequential "subtype-refinement-to-base"
   (let ((refined (cl-cc/type:make-type-refinement :base type-int :predicate #'plusp)))
     (expect (cl-cc/type:is-subtype-p refined type-int) :to-be-truthy)
     (expect (cl-cc/type:is-subtype-p type-int refined) :to-be-falsy)))
+
+(it-sequential "subtype-t1-of-a-kind-with-no-dedicated-clause-falls-through-to-t2-rules"
+  ;; IS-SUBTYPE-P's TYPECASE on T1 ends in a (T (%IS-SUBTYPE-P-BY-T2 T1
+  ;; T2)) catch-all for any T1 kind without its own dedicated clause
+  ;; (union/intersection/refinement/primitive/record/variant/
+  ;; constructor/arrow/effect-row/advanced); every other test in this
+  ;; suite passes a T1 of one of those explicitly-handled kinds, so this
+  ;; clause had never run. A fresh, unbound TYPE-VAR is neither TYPE-
+  ;; EQUAL-P nor TYPE-UNKNOWN-P nor any dedicated-clause kind, and T2
+  ;; here is a plain primitive (not a constructor/union/intersection
+  ;; either), so %IS-SUBTYPE-P-BY-T2 also falls through to its own
+  ;; (T NIL) -- overall NIL, but reached via the catch-all this time.
+  (expect (cl-cc/type:is-subtype-p (cl-cc/type:fresh-type-var) type-int)
+          :to-be-falsy))
 
 ;;; ─── Function subtyping (contravariant params, covariant return) ────────────
 
@@ -206,6 +229,25 @@
   (expect (cl-cc/type:is-subtype-p
                  (make-type-arrow (list type-int) type-int)
                  (make-type-arrow (list type-any) type-int))
+          :to-be-falsy)
+  ;; Every case above has T2 typep TYPE-ARROW, so the TYPE-ARROW clause's
+  ;; (AND (TYPE-ARROW-P T2) ...) always short-circuits via %SUBTYPE-
+  ;; ARROW-P, never via TYPE-ARROW-P itself being false. A union
+  ;; containing a compatible arrow reaches %IS-SUBTYPE-P-BY-T2 via that
+  ;; other path, with a real match in its TYPE-UNION clause.
+  (let ((fn (make-type-arrow (list type-int) type-int)))
+    (expect (cl-cc/type:is-subtype-p
+             fn (cl-cc/type:make-type-union (list fn type-string)))
+            :to-be-truthy))
+  ;; %SUBTYPE-ARROW-P's own return-type check, (IS-SUBTYPE-P
+  ;; (TYPE-ARROW-RETURN T1) (TYPE-ARROW-RETURN T2)), had only ever been
+  ;; observed true: the params-not-covariant case above already fails
+  ;; the earlier params conjunct, short-circuiting before ever reaching
+  ;; this one. Equal, compatible params with incompatible returns
+  ;; reaches it and makes it false instead.
+  (expect (cl-cc/type:is-subtype-p
+                (make-type-arrow (list type-int) type-string)
+                (make-type-arrow (list type-int) type-int))
           :to-be-falsy))
 
 ;;; ─── find-common-supertype ──────────────────────────────────────────────────
@@ -237,15 +279,15 @@
 (progn
   (it-sequential "type-lattice-identity-same join"
     (let ((result (cl-cc/type:type-join type-int type-int)))
-      (expect (type-equal-p type-int result) :to-be-truthy)))
+      (expect type-int :to-be-type-equal-to result)))
   (it-sequential "type-lattice-identity-same meet"
     (let ((result (cl-cc/type:type-meet type-int type-int)))
-      (expect (type-equal-p type-int result) :to-be-truthy))))
+      (expect type-int :to-be-type-equal-to result))))
 
 (it-sequential "type-join-subtype-yields-larger"
   (let ((fixnum-t (prim 'fixnum))
         (int-t    (prim 'integer)))
-    (expect (type-equal-p int-t (cl-cc/type:type-join fixnum-t int-t)) :to-be-truthy)))
+    (expect int-t :to-be-type-equal-to (cl-cc/type:type-join fixnum-t int-t))))
 
 (it-sequential "type-join-unrelated-yields-common-supertype"
   (let ((fixnum-t (prim 'fixnum))
@@ -255,7 +297,12 @@
       (expect (type-primitive-name result) :to-be 'real))))
 
 (it-sequential "type-join-unknown-yields-other-type"
-  (expect (type-equal-p type-string (cl-cc/type:type-join cl-cc/type:+type-unknown+ type-string)) :to-be-truthy))
+  (expect type-string :to-be-type-equal-to (cl-cc/type:type-join cl-cc/type:+type-unknown+ type-string)))
+
+(it-sequential "type-join-unknown-as-second-argument-yields-first-type"
+  ;; The pre-existing test only ever puts +TYPE-UNKNOWN+ in T1's position;
+  ;; TYPE-JOIN's own (TYPE-UNKNOWN-P T2) clause is a separate COND arm.
+  (expect type-string :to-be-type-equal-to (cl-cc/type:type-join type-string cl-cc/type:+type-unknown+)))
 
 (it-sequential "type-join-int-and-string-returns-truthy"
   (expect (cl-cc/type:type-join type-int type-string) :to-be-truthy))
@@ -265,10 +312,23 @@
 (it-sequential "type-meet-subtype-yields-smaller"
   (let ((fixnum-t (prim 'fixnum))
         (int-t    (prim 'integer)))
-    (expect (type-equal-p fixnum-t (cl-cc/type:type-meet fixnum-t int-t)) :to-be-truthy)))
+    (expect fixnum-t :to-be-type-equal-to (cl-cc/type:type-meet fixnum-t int-t))))
+
+(it-sequential "type-meet-second-argument-subtype-yields-second-type"
+  ;; The pre-existing "subtype-yields-smaller" test only drives (IS-
+  ;; SUBTYPE-P T1 T2); TYPE-MEET's next COND arm, (IS-SUBTYPE-P T2 T1),
+  ;; needs T2 to be the more specific type instead.
+  (let ((fixnum-t (prim 'fixnum))
+        (int-t    (prim 'integer)))
+    (expect fixnum-t :to-be-type-equal-to (cl-cc/type:type-meet int-t fixnum-t))))
 
 (it-sequential "type-meet-unknown-yields-unknown"
-  (expect (cl-cc/type:type-unknown-p (cl-cc/type:type-meet cl-cc/type:+type-unknown+ type-string)) :to-be-truthy))
+  (expect (cl-cc/type:type-unknown-p (cl-cc/type:type-meet cl-cc/type:+type-unknown+ type-string))
+          :to-be-truthy))
+
+(it-sequential "type-meet-unknown-as-second-argument-yields-unknown"
+  (expect (cl-cc/type:type-unknown-p (cl-cc/type:type-meet type-string cl-cc/type:+type-unknown+))
+          :to-be-truthy))
 
 (it-sequential "type-meet-unrelated-yields-intersection"
   (expect (type-intersection-p (cl-cc/type:type-meet type-int type-string)) :to-be-truthy))

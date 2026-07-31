@@ -41,36 +41,53 @@ with ROW-VAR as the tail."
     (t
      (values nil nil))))
 
+(defun %unify-fold-cps (items subst step succ fail)
+  "Thread SUBST across ITEMS in continuation-passing style.
+STEP is called as (funcall step item subst succ1 fail1); it must invoke
+SUCC1 with the updated substitution on success, or FAIL1 (no arguments) on
+failure. Calls SUCC with the final substitution once every item has
+succeeded, or FAIL as soon as any item fails -- later items are never
+visited, matching the short-circuit behavior of the two hand-rolled
+early-exit loops this replaces."
+  (if (null items)
+      (funcall succ subst)
+      (funcall step (first items) subst
+               (lambda (new-subst) (%unify-fold-cps (rest items) new-subst step succ fail))
+               fail)))
+
 (defun %unify-payload-pairs (pairs subst)
   "Unify each (left . right) payload pair sequentially, threading SUBST through.
 Returns (values final-subst t) or (values nil nil) on first failure."
-  (if (null pairs)
-      (values subst t)
-      (multiple-value-bind (s ok)
-          (%type-advanced-payload-unify (caar pairs) (cdar pairs) subst)
-        (if ok
-            (%unify-payload-pairs (cdr pairs) s)
-            (values nil nil)))))
+  (%unify-fold-cps
+   pairs subst
+   (lambda (pair s succ fail)
+     (multiple-value-bind (s2 ok)
+         (%type-advanced-payload-unify (car pair) (cdr pair) s)
+       (if ok (funcall succ s2) (funcall fail))))
+   (lambda (final-subst) (values final-subst t))
+   (lambda () (values nil nil))))
 
 (defun %unify-property-alist (left-props right-props subst)
   "Unify two property alists key-order-insensitively.
 Each property is (key . value). Looks up each left key in right by assoc, then
 unifies the values. Returns (values final-subst t) or (values nil nil)."
-  (unless (= (length left-props) (length right-props))
-    (return-from %unify-property-alist (values nil nil)))
-  (loop with s = subst
-        for (key . val-left) in left-props
-        for pair = (assoc key right-props)
-        unless pair return (values nil nil)
-        do (multiple-value-bind (s2 ok)
-               (if (typep val-left 'type-node)
-                   (type-unify val-left (cdr pair) s)
-                   (if (equal val-left (cdr pair))
-                       (values s t)
-                       (values nil nil)))
-             (unless ok (return (values nil nil)))
-             (setf s s2))
-        finally (return (values s t))))
+  (if (/= (length left-props) (length right-props))
+      (values nil nil)
+      (%unify-fold-cps
+       left-props subst
+       (lambda (left-prop s succ fail)
+         (let ((pair (assoc (car left-prop) right-props)))
+           (if (null pair)
+               (funcall fail)
+               (multiple-value-bind (s2 ok)
+                   (if (typep (cdr left-prop) 'type-node)
+                       (type-unify (cdr left-prop) (cdr pair) s)
+                       (if (equal (cdr left-prop) (cdr pair))
+                           (values s t)
+                           (values nil nil)))
+                 (if ok (funcall succ s2) (funcall fail))))))
+       (lambda (final-subst) (values final-subst t))
+       (lambda () (values nil nil)))))
 
 (defun %type-advanced-unify (left right subst)
   "Unify two advanced feature nodes when they share the same FR id and shape."
@@ -141,25 +158,32 @@ unifies the values. Returns (values final-subst t) or (values nil nil)."
       t)))
 
 (defun %bind-type-var-with-bounds (var ty subst)
-  "Return an extended substitution for VAR -> TY, or NIL when bounds fail."
+  "Return an extended substitution for VAR -> TY, or NIL when bounds fail.
+Callers must already have ruled out TY resolving to VAR itself (an alias,
+not a fresh binding target) before reaching here."
   (let ((resolved (zonk ty subst)))
     (cond
-      ((and (type-var-p resolved)
-            (not (type-var-equal-p var resolved)))
+      ((type-var-p resolved)
        (when (%merge-type-var-bounds-into! var resolved subst)
          (subst-extend var resolved subst)))
-      ((type-var-p resolved)
-       subst)
       ((%type-var-concrete-bound-satisfied-p var resolved subst)
        (subst-extend var resolved subst)))))
 
 (defun %unify-free-var (var other subst)
   "Bind free type variable VAR to OTHER under SUBST after occurs check.
-Handles the same-variable identity case and the occurs check before binding."
+Handles the same-variable identity case (direct, or OTHER an alias of VAR
+via SUBST) and the occurs check before binding."
   (macrolet ((succeed (s) `(values ,s t))
              (fail () `(values nil nil)))
     (cond
       ((and (type-var-p other) (type-var-equal-p var other)) (succeed subst))
+      ;; OTHER may resolve, through a chain of substitution links, to VAR
+      ;; itself: OTHER is simply an alias for VAR, not a structure VAR would
+      ;; occur within. TYPE-OCCURS-P cannot distinguish "resolves to VAR" from
+      ;; "VAR occurs nested inside", so this alias case is checked first.
+      ((let ((resolved (zonk other subst)))
+         (and (type-var-p resolved) (type-var-equal-p var resolved)))
+       (succeed subst))
       ((type-occurs-p var other subst) (fail))
       (t (let ((s (%bind-type-var-with-bounds var other subst)))
            (if s (succeed s) (fail)))))))
@@ -211,6 +235,69 @@ produced by the successful trial unification."
         (return-from %type-unify-intersection (fail)))
       (type-unify-lists types1 types2 subst))))
 
+(defun %type-unify-var-t1 (t1 t2 subst)
+  "Unify type-variable T1 against T2: use T1's existing binding in SUBST when
+present, otherwise attempt a fresh binding via %UNIFY-FREE-VAR. Rejects
+unifying a bare type variable directly with a still-quantified TYPE-FORALL
+\(impredicative instantiation\), since Rank-N types must appear in argument
+positions."
+  (multiple-value-bind (binding found-p) (subst-lookup t1 subst)
+    (if found-p
+        (type-unify binding t2 subst)
+        (if (typep t2 'type-forall)
+            (error 'type-inference-error
+                   :message (format nil
+                                    "Impredicative type: cannot unify ~A with ~A. ~
+                                     Rank-N types must appear in argument positions."
+                                    (type-to-string t1)
+                                    (type-to-string t2)))
+            (%unify-free-var t1 t2 subst)))))
+
+(defun %type-unify-var-t2 (t1 t2 subst)
+  "Unify type-variable T2 against T1: the (type-var-p t2) mirror of
+%TYPE-UNIFY-VAR-T1. Its impredicative-instantiation error message is shorter
+than %TYPE-UNIFY-VAR-T1's — no \"Rank-N types...\" sentence — matching the
+original clause bodies exactly rather than unifying the wording, since this
+is a structural extraction and not a change to observable behavior."
+  (multiple-value-bind (binding found-p) (subst-lookup t2 subst)
+    (if found-p
+        (type-unify t1 binding subst)
+        (if (typep t1 'type-forall)
+            (error 'type-inference-error
+                   :message (format nil
+                                    "Impredicative type: cannot unify ~A with ~A."
+                                    (type-to-string t1)
+                                    (type-to-string t2)))
+            (%unify-free-var t2 t1 subst)))))
+
+(defun %type-unify-arrow (t1 t2 subst)
+  "Unify two type-arrow nodes: parameter lists element-wise, then return
+types under the resulting substitution."
+  (macrolet ((fail () `(values nil nil)))
+    (let ((params1 (type-arrow-params t1))
+          (params2 (type-arrow-params t2)))
+      (unless (= (length params1) (length params2))
+        (return-from %type-unify-arrow (fail)))
+      (multiple-value-bind (subst-params ok)
+          (type-unify-lists params1 params2 subst)
+        (if ok
+            (type-unify (type-arrow-return t1)
+                        (type-arrow-return t2)
+                        subst-params)
+            (fail))))))
+
+(defun %type-unify-constructor (t1 t2 subst)
+  "Unify two type-constructor nodes: same constructor name, then arguments
+element-wise by position."
+  (macrolet ((fail () `(values nil nil)))
+    (if (eq (type-constructor-name t1) (type-constructor-name t2))
+        (let ((args1 (type-constructor-args t1))
+              (args2 (type-constructor-args t2)))
+          (unless (= (length args1) (length args2))
+            (return-from %type-unify-constructor (fail)))
+          (type-unify-lists args1 args2 subst))
+        (fail))))
+
 (defun type-unify (t1 t2 &optional (subst (make-substitution)))
   "Unify two type-nodes, returning (values substitution success-p).
 
@@ -235,45 +322,14 @@ Examples:
       ((eq t1 t2) (succeed subst))
 
       ;; T1 is type variable (new-style type-var)
-      ((type-var-p t1)
-       (multiple-value-bind (binding found-p) (subst-lookup t1 subst)
-         (if found-p
-             (type-unify binding t2 subst)
-             (if (typep t2 'type-forall)
-                 (error 'type-inference-error
-                        :message (format nil
-                                         "Impredicative type: cannot unify ~A with ~A. ~
-                                          Rank-N types must appear in argument positions."
-                                         (type-to-string t1)
-                                         (type-to-string t2)))
-                 (%unify-free-var t1 t2 subst)))))
+      ((type-var-p t1) (%type-unify-var-t1 t1 t2 subst))
 
       ;; T2 is type variable
-      ((type-var-p t2)
-       (multiple-value-bind (binding found-p) (subst-lookup t2 subst)
-         (if found-p
-             (type-unify t1 binding subst)
-             (if (typep t1 'type-forall)
-                 (error 'type-inference-error
-                        :message (format nil
-                                         "Impredicative type: cannot unify ~A with ~A."
-                                         (type-to-string t1)
-                                         (type-to-string t2)))
-                 (%unify-free-var t2 t1 subst)))))
+      ((type-var-p t2) (%type-unify-var-t2 t1 t2 subst))
 
       ;; Arrow types
       ((and (type-arrow-p t1) (type-arrow-p t2))
-       (let ((params1 (type-arrow-params t1))
-             (params2 (type-arrow-params t2)))
-         (unless (= (length params1) (length params2))
-           (return-from type-unify (fail)))
-         (multiple-value-bind (subst-params ok)
-             (type-unify-lists params1 params2 subst)
-           (if ok
-               (type-unify (type-arrow-return t1)
-                           (type-arrow-return t2)
-                           subst-params)
-               (fail)))))
+       (%type-unify-arrow t1 t2 subst))
 
       ;; Product types
       ((and (type-product-p t1) (type-product-p t2))
@@ -299,13 +355,7 @@ Examples:
 
       ;; Both are type constructors (parametric types)
       ((and (typep t1 'type-constructor) (typep t2 'type-constructor))
-       (if (eq (type-constructor-name t1) (type-constructor-name t2))
-           (let ((args1 (type-constructor-args t1))
-                 (args2 (type-constructor-args t2)))
-             (unless (= (length args1) (length args2))
-               (return-from type-unify (fail)))
-             (type-unify-lists args1 args2 subst))
-           (fail)))
+       (%type-unify-constructor t1 t2 subst))
 
       ;; Both are primitive types
       ((and (type-primitive-p t1) (type-primitive-p t2))

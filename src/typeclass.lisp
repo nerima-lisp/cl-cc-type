@@ -152,15 +152,12 @@ relative to EXISTING-TYPE. Uses positional matching over type params."
   "Typeclass names eligible for numeric defaulting.")
 
 (defun %typeclass-type-string (type)
-  "Return a stable registry string for TYPE without depending on printer load order."
-  (cond
-    ((fboundp 'type-to-string) (type-to-string type))
-    ((type-primitive-p type) (symbol-name (type-primitive-name type)))
-    ((type-var-p type) (symbol-name (type-var-name type)))
-    ((type-error-p type) "<error>")
-    ((null type) "NIL")
-    ((symbolp type) (symbol-name type))
-    (t (princ-to-string type))))
+  "Return a stable registry string for TYPE.
+TYPE-TO-STRING is a DEFGENERIC in types-env.lisp, which cl-cc-type.asd
+loads before this file, so it is unconditionally FBOUNDP by the time this
+function can ever run -- the printer-load-order fallback this once had is
+therefore provably unreachable and has been removed."
+  (type-to-string type))
 
 (defun %type-instance-key (class-name type)
   "Build the hash key for (CLASS-NAME, TYPE)."
@@ -173,27 +170,33 @@ relative to EXISTING-TYPE. Uses positional matching over type params."
         when (and (consp k) (eq (car k) class-name))
         collect inst))
 
+(defun %check-typeclass-instance-conflicts (class-name type tc-def existing-instances)
+  "Signal a TYPE-INFERENCE-ERROR when TYPE conflicts with any of
+EXISTING-INSTANCES for CLASS-NAME: an overlapping instance, or (when TC-DEF
+declares functional dependencies) a functional-dependency violation."
+  (dolist (existing existing-instances)
+    (let ((existing-type (typeclass-instance-instance-type existing)))
+      (when (%typeclass-instance-overlaps-p existing-type type)
+        (error 'type-inference-error
+               :message (format nil "Overlapping typeclass instances for ~A: ~A and ~A"
+                                 class-name (%typeclass-type-string existing-type)
+                                 (%typeclass-type-string type))))
+      (when (and (typeclass-def-p tc-def)
+                 (%typeclass-fundep-violation-p tc-def existing-type type))
+        (error 'type-inference-error
+               :message (format nil "Functional dependency violation for ~A: ~A vs ~A"
+                                 class-name (%typeclass-type-string existing-type)
+                                 (%typeclass-type-string type)))))))
+
 (defun register-typeclass-instance (class-name type method-impls)
   "Register that TYPE implements CLASS-NAME with METHOD-IMPLS."
   (when (lookup-typeclass-instance class-name type)
     (error 'type-inference-error
            :message (format nil "Duplicate typeclass instance for ~A / ~A"
                             class-name (%typeclass-type-string type))))
-  (let ((existing-instances (%existing-class-instances class-name))
-        (tc-def (lookup-typeclass class-name)))
-    (dolist (existing existing-instances)
-      (let ((existing-type (typeclass-instance-instance-type existing)))
-        (when (%typeclass-instance-overlaps-p existing-type type)
-          (error 'type-inference-error
-                 :message (format nil "Overlapping typeclass instances for ~A: ~A and ~A"
-                                   class-name (%typeclass-type-string existing-type)
-                                   (%typeclass-type-string type))))
-        (when (and (typeclass-def-p tc-def)
-                   (%typeclass-fundep-violation-p tc-def existing-type type))
-          (error 'type-inference-error
-                 :message (format nil "Functional dependency violation for ~A: ~A vs ~A"
-                                   class-name (%typeclass-type-string existing-type)
-                                   (%typeclass-type-string type)))))))
+  (%check-typeclass-instance-conflicts class-name type
+                                       (lookup-typeclass class-name)
+                                       (%existing-class-instances class-name))
   (let ((inst (%make-typeclass-instance
                :class-name    class-name
                :instance-type type

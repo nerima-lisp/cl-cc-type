@@ -140,7 +140,10 @@ stay residual so the caller can refine them later."
                         (effect-row-member-p label rho)))
                (values current-subst c)
                (values current-subst nil))
-           (values current-subst nil)))
+           ;; Open: a later refinement could still add LABEL, so this
+           ;; cannot be discharged as satisfied -- stays residual, per
+           ;; this function's own docstring.
+           (values current-subst c)))
       (t
        (values current-subst c)))))
 

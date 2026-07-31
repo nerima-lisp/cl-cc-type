@@ -38,7 +38,7 @@
   (let* ((r (make-closed-record :x type-int))
          (r2 (row-extend :x type-string r)))
     (expect (length (type-record-fields r2)) :to-equal 2)
-    (expect (type-equal-p type-string (row-select :x r2)) :to-be-truthy)))
+    (expect type-string :to-be-type-equal-to (row-select :x r2))))
 
 ;;; ─── row-restrict ────────────────────────────────────────────────────────────
 (it-sequential
@@ -47,7 +47,7 @@
          (r2 (row-restrict :x r)))
     (expect (length (type-record-fields r2)) :to-equal 1)
     (expect (row-select :x r2) :to-be-null)
-    (expect (type-equal-p type-string (row-select :y r2)) :to-be-truthy))
+    (expect type-string :to-be-type-equal-to (row-select :y r2)))
   (expect
     (length (type-record-fields (row-restrict :z (make-closed-record :x type-int))))
     :to-equal
@@ -60,8 +60,8 @@
 (it-sequential
   "row-select-behavior"
   (let ((r (make-closed-record :x type-int :y type-string)))
-    (expect (type-equal-p type-int (row-select :x r)) :to-be-truthy)
-    (expect (type-equal-p type-string (row-select :y r)) :to-be-truthy))
+    (expect type-int :to-be-type-equal-to (row-select :x r))
+    (expect type-string :to-be-type-equal-to (row-select :y r)))
   (expect (row-select :z (make-closed-record :x type-int)) :to-be-null)
   (let ((v
         (make-type-variant
@@ -69,8 +69,8 @@
           (list (cons :some type-int) (cons :none type-null))
           :row-var
           nil)))
-    (expect (type-equal-p type-int (row-select :some v)) :to-be-truthy)
-    (expect (type-equal-p type-null (row-select :none v)) :to-be-truthy)))
+    (expect type-int :to-be-type-equal-to (row-select :some v))
+    (expect type-null :to-be-type-equal-to (row-select :none v))))
 
 ;;; ─── row-labels ──────────────────────────────────────────────────────────────
 (it-sequential
@@ -163,8 +163,8 @@
           (list (cons 'name type-string) (cons 'age type-int))
           :row-var
           nil)))
-    (expect (type-equal-p type-string (row-select 'name rec)) :to-be-truthy)
-    (expect (type-equal-p type-int (row-select 'age rec)) :to-be-truthy)
+    (expect type-string :to-be-type-equal-to (row-select 'name rec))
+    (expect type-int :to-be-type-equal-to (row-select 'age rec))
     (expect (row-select 'missing rec) :to-be-null)))
 
 (it-sequential
@@ -189,3 +189,31 @@
     (expect (row-open-p closed) :to-be-falsy)
     (expect (row-closed-p open) :to-be-falsy)
     (expect (row-open-p open) :to-be-truthy)))
+
+(it-sequential
+  "row-select-and-row-labels-are-nil-for-a-type-that-is-neither-record-nor-variant"
+  ;; Both COND forms have a final (T NIL) clause that neither pre-existing
+  ;; record-shaped nor variant-shaped test data can reach.
+  (expect (row-select :x type-int) :to-be-null)
+  (expect (row-labels type-int) :to-be-null))
+
+(it-sequential
+  "row-closed-p-and-row-open-p-work-on-type-effect-row-directly"
+  ;; ROW-CLOSED-P's COND has a dedicated TYPE-EFFECT-ROW-P clause, but the
+  ;; effect-row tests above only ever call EFFECT-ROW-EXTEND/-RESTRICT/
+  ;; -MEMBER-P, never ROW-CLOSED-P/ROW-OPEN-P on an effect row.
+  (let ((closed-row (make-type-effect-row :effects nil :row-var nil))
+        (open-row (make-type-effect-row :effects nil :row-var (fresh-type-var))))
+    (expect (row-closed-p closed-row) :to-be-truthy)
+    (expect (row-open-p closed-row) :to-be-falsy)
+    (expect (row-closed-p open-row) :to-be-falsy)
+    (expect (row-open-p open-row) :to-be-truthy)))
+
+(it-sequential
+  "row-closed-p-defaults-to-true-for-a-type-that-is-none-of-the-three-row-shapes"
+  (expect (row-closed-p type-int) :to-be-truthy)
+  (expect (row-open-p type-int) :to-be-falsy))
+
+(it-sequential
+  "effect-row-member-p-is-falsy-for-a-non-effect-row-argument"
+  (expect (cl-cc/type:effect-row-member-p :io type-int) :to-be-falsy))

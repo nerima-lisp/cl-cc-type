@@ -85,6 +85,15 @@
   (expect (kind-equal-p +kind-row-type+ +kind-row-type+) :to-be-truthy)
   (expect (kind-equal-p +kind-row-type+ +kind-row-effect+) :to-be-falsy))
 
+(it-sequential "kind-equal-arrow-mismatched-from-short-circuits-before-checking-to"
+  ;; kind-equal-p's arrow clause is (AND (kind-equal-p from1 from2)
+  ;; (kind-equal-p to1 to2)); the pre-existing arrow tests only ever have
+  ;; FROM agree (so the AND's first conjunct is always true, and only its
+  ;; second conjunct's truth value varies). Mismatch FROM itself so the
+  ;; first conjunct is false and the AND short-circuits.
+  (expect (kind-equal-p (kind-fun +kind-effect+ +kind-type+)
+                         (kind-fun +kind-type+ +kind-type+)) :to-be-falsy))
+
 ;;; ─── kind-to-string ─────────────────────────────────────────────────────────
 
 (it-sequential "kind-to-string-values star"
@@ -154,3 +163,53 @@
                          (kind-fun +kind-type+ +kind-type+)) :to-be-truthy)
   (expect (kind-equal-p (kind-fun +kind-type+ +kind-effect+)
                          (kind-fun +kind-type+ +kind-type+)) :to-be-falsy))
+
+;;; ─── kind-var-equal-p non-kind-var arguments ────────────────────────────────
+;;; kind-var-equal-p short-circuits via (and (kind-var-p kv1) (kind-var-p kv2)
+;;; ...); exercise both the "first arg not a kind-var" short-circuit and the
+;;; "first is a kind-var but second is not" branch, neither of which is hit
+;;; by passing two fresh-kind-var results.
+
+(it-sequential "kind-var-equal-p-rejects-non-kind-var first-arg"
+  (expect (kind-var-equal-p +kind-type+ (fresh-kind-var)) :to-be-falsy))
+
+(it-sequential "kind-var-equal-p-rejects-non-kind-var second-arg"
+  (expect (kind-var-equal-p (fresh-kind-var) +kind-type+) :to-be-falsy))
+
+(it-sequential "kind-var-equal-p-rejects-non-kind-var both-args"
+  (expect (kind-var-equal-p +kind-type+ +kind-effect+) :to-be-falsy))
+
+;;; ─── kind-equal-p var-var branch ─────────────────────────────────────────────
+;;; The (and (kind-var-p k1) (kind-var-p k2) (kind-var-equal-p k1 k2)) branch
+;;; of kind-equal-p is not exercised anywhere above — every prior kind-equal-p
+;;; test compares non-var kinds.
+
+(it-sequential "kind-equal-p-var-var same-var"
+  (let ((kv (fresh-kind-var)))
+    (expect (kind-equal-p kv kv) :to-be-truthy)))
+
+(it-sequential "kind-equal-p-var-var different-vars"
+  (let ((kv1 (fresh-kind-var))
+        (kv2 (fresh-kind-var)))
+    (expect (kind-equal-p kv1 kv2) :to-be-falsy)))
+
+;;; ─── kind-to-string for unnamed kind-var ────────────────────────────────────
+;;; kind-to-string's kind-var clause has two sub-branches: named (format
+;;; "k~A" name) already covered above, and unnamed (format "k~D" id), which
+;;; is not exercised anywhere else.
+
+(it-sequential "kind-to-string-unnamed-var uses-id"
+  (let ((kv (fresh-kind-var)))
+    (expect (cl-cc/type:kind-var-name kv) :to-be-falsy)
+    (expect (kind-to-string kv) :to-equal (format nil "k~D" (cl-cc/type:kind-var-id kv)))))
+
+;;; ─── kind-to-string fallback ─────────────────────────────────────────────────
+;;; Every constructed kind-node subtype matches one of the cond clauses above,
+;;; so the trailing (t "?") fallback clause is only reachable via a bare
+;;; kind-node instance that isn't any of the named subtypes.
+
+(it-sequential "kind-to-string-fallback bare-kind-node"
+  (let ((bare (cl-cc/type::make-kind-node)))
+    (expect (kind-node-p bare) :to-be-truthy)
+    (expect (kind-type-p bare) :to-be-falsy)
+    (expect (kind-to-string bare) :to-equal "?")))
