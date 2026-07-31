@@ -22,8 +22,12 @@
     # cl-cc-ast cut its first tag (v0.1.0); DEPENDENCY_POLICY.md requires
     # sibling references to track a release tag rather than a bare commit, so
     # this follows suit instead of staying pinned to the pre-release commit.
+    # v0.2.0 is backward-compatible (its closure-analysis CPS conversion adds
+    # an optional continuation defaulting to #'identity); cl-cc-type only
+    # consumes cl-cc-ast's AST node structs/accessors, not that module, so
+    # there is nothing here for the new continuation parameter to affect.
     cl-cc-ast = {
-      url = "github:nerima-lisp/cl-cc-ast/v0.1.0";
+      url = "github:nerima-lisp/cl-cc-ast/v0.2.0";
       flake = false;
     };
 

@@ -3,16 +3,16 @@
     "cl-cc-ast": {
       "flake": false,
       "locked": {
-        "lastModified": 1785011885,
-        "narHash": "sha256-bNIm9MoXeBVSWkkv7mr6YEkoIk/dhej0Xz+ofAQc5tk=",
+        "lastModified": 1785484061,
+        "narHash": "sha256-UkonaEkOJr6SDHcu9vooVqY5X3kWK0+9vYps1K2sMhg=",
         "owner": "nerima-lisp",
         "repo": "cl-cc-ast",
-        "rev": "e50181a3bef4fb6c4b808866a79eae54a509d103",
+        "rev": "25375954dd13037d608b8e427a6dd86588207153",
         "type": "github"
       },
       "original": {
         "owner": "nerima-lisp",
-        "ref": "v0.1.0",
+        "ref": "v0.2.0",
         "repo": "cl-cc-ast",
         "type": "github"
       }
