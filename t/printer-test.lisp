@@ -36,53 +36,67 @@
 
 (progn
   (it-sequential "printer-arrow-cases single-param"
-    (let ((s (type-to-string (make-type-arrow (list type-int) type-string :effects nil))))
-      (expect (search "->" s) :to-be-truthy)
-      (assert-when-present "FIXNUM" (expect (search "FIXNUM" s) :to-be-truthy))
-      (assert-when-present "STRING" (expect (search "STRING" s) :to-be-truthy))
-      (assert-when-present nil (expect (search "IO" s) :to-be-truthy))))
+    (expect (type-to-string (make-type-arrow (list type-int) type-string :effects nil))
+            :to-match-inline-snapshot "\"FIXNUM -> STRING\""))
   (it-sequential "printer-arrow-cases multi-param"
-    (let ((s (type-to-string (make-type-arrow (list type-int type-string) type-bool :effects nil))))
-      (expect (search "->" s) :to-be-truthy)
-      (assert-when-present nil (expect (search nil s) :to-be-truthy))
-      (assert-when-present nil (expect (search nil s) :to-be-truthy))
-      (assert-when-present nil (expect (search "IO" s) :to-be-truthy))))
+    (expect (type-to-string (make-type-arrow (list type-int type-string) type-bool :effects nil))
+            :to-match-inline-snapshot "\"(FIXNUM -> STRING) -> BOOLEAN\""))
   (it-sequential "printer-arrow-cases with-effects"
-    (let ((s (type-to-string (make-type-arrow (list type-int) type-string :effects +io-effect-row+))))
-      (expect (search "->" s) :to-be-truthy)
-      (assert-when-present "IO" (expect (search "IO" s) :to-be-truthy))
-      (assert-when-present nil (expect (search nil s) :to-be-truthy))
-      (assert-when-present +io-effect-row+ (expect (search "IO" s) :to-be-truthy)))))
+    (expect (type-to-string
+             (make-type-arrow (list type-int) type-string :effects +io-effect-row+))
+            :to-match-inline-snapshot "\"FIXNUM -[{IO}]-> STRING\""))
+  (it-sequential "printer-arrow-cases effects-eq-to-the-pure-singleton"
+    ;; TYPE-TO-STRING's (AND EFFECTS (NOT (EQ EFFECTS +PURE-EFFECT-ROW+))
+    ;; (TYPE-EFFECT-ROW-EFFECTS EFFECTS)) only ever saw EFFECTS=NIL (the
+    ;; first conjunct false, short-circuiting immediately) or a genuine
+    ;; I/O row (all three conjuncts true); using +PURE-EFFECT-ROW+ itself
+    ;; is non-NIL but EQ to the singleton, isolating the second conjunct.
+    (expect (type-to-string
+             (make-type-arrow (list type-int) type-string :effects +pure-effect-row+))
+            :to-match-inline-snapshot "\"FIXNUM -> STRING\""))
+  (it-sequential "printer-arrow-cases effects-non-pure-object-with-no-concrete-effects"
+    ;; A distinct (not EQ +PURE-EFFECT-ROW+) row with an open row-var but
+    ;; no concrete effects isolates the third conjunct's own false branch.
+    (expect (type-to-string
+             (make-type-arrow (list type-int) type-string
+                              :effects (make-type-effect-row :effects nil
+                                                             :row-var (fresh-type-var))))
+            :to-match-inline-snapshot "\"FIXNUM -> STRING\"")))
 
 (progn
   (it-sequential "printer-container-type-delimiters product"
-    (expect (search "," (type-to-string (make-type-product :elems (list type-int type-string)))) :to-be-truthy))
+    (expect (type-to-string (make-type-product :elems (list type-int type-string)))
+            :to-match-inline-snapshot "\"(FIXNUM, STRING)\""))
   (it-sequential "printer-container-type-delimiters variant"
-    (expect (search "<" (type-to-string (make-type-variant :cases (list (cons 'some type-int) (cons 'none type-null))
-                                                             :row-var nil))) :to-be-truthy))
+    (expect (type-to-string
+             (make-type-variant
+              :cases (list (cons 'some type-int) (cons 'none type-null))
+              :row-var nil))
+            :to-match-inline-snapshot "\"<SOME: FIXNUM, NONE: NULL>\""))
   (it-sequential "printer-container-type-delimiters type-app"
-    (expect (search "(" (type-to-string (make-type-app :fun type-int :arg type-string))) :to-be-truthy)))
+    (expect (type-to-string (make-type-app :fun type-int :arg type-string))
+            :to-match-inline-snapshot "\"(FIXNUM STRING)\"")))
 
 (progn
   (it-sequential "printer-record-cases closed"
-    (let* ((r (make-type-record :fields (list (cons 'x type-int) (cons 'y type-string)) :row-var nil))
-           (s (type-to-string r)))
-      (expect (search "{" s) :to-be-truthy)
-      (assert-when-present "x"
-        (expect (search "x" (string-downcase s)) :to-be-truthy))))
+    (expect (type-to-string
+             (make-type-record :fields (list (cons 'x type-int) (cons 'y type-string))
+                                :row-var nil))
+            :to-match-inline-snapshot "\"{X: FIXNUM, Y: STRING}\""))
   (it-sequential "printer-record-cases open"
     (let* ((rv (fresh-type-var :name "rho"))
            (r (make-type-record :fields (list (cons 'x type-int)) :row-var rv))
            (s (type-to-string r)))
       (expect (search "|" s) :to-be-truthy)
-      (assert-when-present nil
-        (expect (search nil (string-downcase s)) :to-be-truthy)))))
+      (expect (search "{X: FIXNUM |" s) :to-be-truthy))))
 
 (progn
   (it-sequential "printer-binary-separator-types union"
-    (expect (search "|" (type-to-string (make-type-union (list type-int type-string)))) :to-be-truthy))
+    (expect (type-to-string (make-type-union (list type-int type-string)))
+            :to-match-inline-snapshot "\"(FIXNUM | STRING)\""))
   (it-sequential "printer-binary-separator-types intersection"
-    (expect (search "&" (type-to-string (make-type-intersection (list type-int type-string)))) :to-be-truthy)))
+    (expect (type-to-string (make-type-intersection (list type-int type-string)))
+            :to-match-inline-snapshot "\"(FIXNUM & STRING)\"")))
 
 (progn
   (it-sequential "printer-quantified-types forall"
@@ -94,42 +108,49 @@
 
 (it-sequential "printer-binder-types"
   (let ((v (fresh-type-var :name "a")))
-    (expect (> (length (type-to-string (cl-cc/type:make-type-lambda :var v :knd nil :body type-int))) 0) :to-be-truthy)
+    (expect (> (length (type-to-string
+                         (cl-cc/type:make-type-lambda :var v :knd nil :body type-int)))
+                0)
+            :to-be-truthy)
     (expect (> (length (type-to-string (make-type-mu :var v :body v))) 0) :to-be-truthy)))
 
 (progn
   (it-sequential "printer-wrapper-type-annotations refinement"
-    (expect (search "<pred>" (type-to-string (cl-cc/type:make-type-refinement :base type-int :predicate nil))) :to-be-truthy))
+    (expect (search "<pred>"
+                     (type-to-string
+                      (cl-cc/type:make-type-refinement :base type-int :predicate nil)))
+            :to-be-truthy))
   (it-sequential "printer-wrapper-type-annotations linear"
-    (expect (search "1" (type-to-string (make-type-linear :base type-int :grade :one))) :to-be-truthy))
+    (expect (search "1" (type-to-string (make-type-linear :base type-int :grade :one)))
+            :to-be-truthy))
   (it-sequential "printer-wrapper-type-annotations capability"
-    (expect (search "READ" (type-to-string (cl-cc/type:make-type-capability :base type-int :cap 'read))) :to-be-truthy)))
+    (expect (search "READ"
+                     (type-to-string
+                      (cl-cc/type:make-type-capability :base type-int :cap 'read)))
+            :to-be-truthy)))
 
 (it-sequential "printer-handler-uses-bracket-notation"
-  (let* ((eff (make-type-effect-op :name 'io :args nil))
-         (h (cl-cc/type:make-type-handler :effect eff :input type-int :output type-string))
-         (s (type-to-string h)))
-    (expect (search "[" s) :to-be-truthy)
-    (expect (search "=>" s) :to-be-truthy)))
+  (let ((eff (make-type-effect-op :name 'io :args nil)))
+    (expect (type-to-string
+             (cl-cc/type:make-type-handler :effect eff :input type-int :output type-string))
+            :to-match-inline-snapshot "\"[IO => FIXNUM / STRING]\"")))
 
 (it-sequential "printer-gadt-constructor-includes-double-colon"
-  (let* ((gc (cl-cc/type:make-type-gadt-con
-              :name 'just :arg-types (list type-int) :index-type type-any))
-         (s (type-to-string gc)))
-    (expect (search "::" s) :to-be-truthy)))
+  (expect (type-to-string
+           (cl-cc/type:make-type-gadt-con
+            :name 'just :arg-types (list type-int) :index-type type-any))
+          :to-match-inline-snapshot "\"JUST :: FIXNUM -> T\""))
 
 ;;; ─── type-to-string: effect rows ──────────────────────────────────────────
 
 (it-sequential "printer-effect-rows-and-ops"
   (expect (type-to-string +pure-effect-row+) :to-equal "{}")
-  (expect (search "IO" (type-to-string +io-effect-row+)) :to-be-truthy)
+  (expect (type-to-string +io-effect-row+) :to-match-inline-snapshot "\"{IO}\"")
   (let* ((rv (fresh-type-var :name "e"))
          (er (make-type-effect-row :effects nil :row-var rv)))
     (expect (search "|" (type-to-string er)) :to-be-truthy))
-  (let* ((op (make-type-effect-op :name 'state :args (list type-int)))
-         (s  (type-to-string op)))
-    (expect (search "STATE"  s) :to-be-truthy)
-    (expect (search "FIXNUM" s) :to-be-truthy))
+  (expect (type-to-string (make-type-effect-op :name 'state :args (list type-int)))
+          :to-match-inline-snapshot "\"(STATE FIXNUM)\"")
   (let* ((rv  (fresh-type-var :name 'epsilon))
          (row (make-type-effect-row
                :effects (list (make-type-effect-op :name 'io))
@@ -142,9 +163,9 @@
 
 (it-sequential "printer-constraint-and-qualified"
   (let ((tc (cl-cc/type:make-type-constraint :class-name 'eq :type-arg type-int)))
-    (expect (search "EQ" (type-to-string tc)) :to-be-truthy)
-    (let ((s (type-to-string (make-type-qualified :constraints (list tc) :body type-int))))
-      (expect (search "=>" s) :to-be-truthy))
+    (expect (type-to-string tc) :to-match-inline-snapshot "\"(EQ FIXNUM)\"")
+    (expect (type-to-string (make-type-qualified :constraints (list tc) :body type-int))
+            :to-match-inline-snapshot "\"((EQ FIXNUM)) => FIXNUM\"")
     (let ((s (type-to-string (make-type-qualified :constraints nil :body type-int))))
       (expect s :to-equal "FIXNUM"))))
 
@@ -152,9 +173,64 @@
 
 (it-sequential "unparse-type-forms"
   (expect (cl-cc/type:unparse-type type-int) :to-be 'fixnum)
-  (expect (first (cl-cc/type:unparse-type (make-type-arrow (list type-int) type-string))) :to-be 'cl-cc/type::->)
-  (expect (first (cl-cc/type:unparse-type (make-type-union (list type-int type-string)))) :to-be 'or)
-  (expect (first (cl-cc/type:unparse-type (make-type-product :elems (list type-int)))) :to-be 'values))
+  (expect (first (cl-cc/type:unparse-type (make-type-arrow (list type-int) type-string)))
+          :to-be 'cl-cc/type::->)
+  (expect (first (cl-cc/type:unparse-type (make-type-union (list type-int type-string))))
+          :to-be 'or)
+  (expect (first (cl-cc/type:unparse-type (make-type-product :elems (list type-int))))
+          :to-be 'values))
+
+;;; ─── unparse-type: remaining type-node kinds ──────────────────────────────
+;;; (merged from t/types-extended-advanced-semantics-test.lisp)
+
+(it-sequential "unparse-type-covers-vars-app-forall-intersection-advanced-and-default"
+  (expect (cl-cc/type:unparse-type (cl-cc/type:fresh-type-var :name 'x)) :to-be 'x)
+  (expect (symbolp (cl-cc/type:unparse-type (cl-cc/type:fresh-type-var))) :to-be-truthy)
+  (let ((a (cl-cc/type:fresh-type-var :name 'a)))
+    (expect (string= (symbol-name
+                       (first (cl-cc/type:unparse-type
+                               (cl-cc/type:make-type-forall :var a :body cl-cc/type:type-int))))
+                      "FORALL")
+            :to-be-truthy))
+  (expect (first (cl-cc/type:unparse-type
+                  (cl-cc/type:make-type-intersection
+                   (list cl-cc/type:type-int cl-cc/type:type-string))))
+          :to-be 'and)
+  (expect (first (cl-cc/type:unparse-type
+                  (cl-cc/type:make-type-constructor 'list (list cl-cc/type:type-int))))
+          :to-be 'list)
+  (let ((anon-app (cl-cc/type:make-type-app :fun (cl-cc/type:fresh-type-var)
+                                             :arg cl-cc/type:type-int)))
+    (expect (listp (cl-cc/type:unparse-type anon-app)) :to-be-truthy)
+    (expect (= (length (cl-cc/type:unparse-type anon-app)) 2) :to-be-truthy))
+  (expect (cl-cc/type:unparse-type :not-a-type-node) :to-be :not-a-type-node)
+  ;; type-advanced: registered surface head vs. the generic 'advanced' head.
+  (let* ((route-node (cl-cc/type:parse-type-specifier '(api-type (get "/users/{id}" integer user))))
+         (route-spec (cl-cc/type:unparse-type route-node)))
+    (expect (string= (symbol-name (first route-spec)) "API-TYPE") :to-be-truthy))
+  (let* ((generic-node (cl-cc/type:parse-type-specifier
+                        '(advanced fr-1606 cache-entry
+                          :dependency-graph call-graph :cache module-cache :lsp t)))
+         (generic-spec (cl-cc/type:unparse-type generic-node)))
+    (expect (string= (symbol-name (first generic-spec)) "ADVANCED") :to-be-truthy)
+    (expect (string= (symbol-name (second generic-spec)) "FR-1606") :to-be-truthy)
+    (expect (cl-cc/type:type-advanced-valid-p (cl-cc/type:parse-type-specifier generic-spec))
+            :to-be-truthy))
+  ;; Neither pre-existing advanced-node example above sets :EVIDENCE, so
+  ;; %UNPARSE-TYPE-ADVANCED's (WHEN (TYPE-ADVANCED-EVIDENCE ty) ...) arm
+  ;; was never taken.
+  (let* ((proof-node (cl-cc/type:parse-type-specifier
+                       '(advanced fr-2001 my-lemma :evidence (proof my-lemma-witness))))
+         (proof-spec (cl-cc/type:unparse-type proof-node)))
+    (expect (member :evidence proof-spec) :to-be-truthy))
+  ;; %UNPARSE-TYPE-ADVANCED interns the feature-id symbol in SURFACE-HEAD's
+  ;; own package when it has one, falling back to *PACKAGE* otherwise; an
+  ;; uninterned surface head (impossible to produce via PARSE-TYPE-SPECIFIER,
+  ;; whose reader always interns) is built directly to reach that fallback.
+  (let ((uninterned-head-node
+          (cl-cc/type:make-type-advanced :feature-id "FR-1601" :name (make-symbol "CUSTOM-HEAD")
+                                         :args (list 'payload) :properties nil)))
+    (expect (cl-cc/type:unparse-type uninterned-head-node) :to-be-truthy)))
 
 ;;; ─── type-to-string: edge cases not covered above ────────────────────────
 
@@ -198,14 +274,21 @@
 
 (progn
   (it-sequential "printer-arrow-mult-table zero"
-    (let ((arr (make-type-arrow (list type-int) type-string :mult :zero)))
-      (expect (search "-0->" (type-to-string arr)) :to-be-truthy)))
+    (expect (type-to-string (make-type-arrow (list type-int) type-string :mult :zero))
+            :to-match-inline-snapshot "\"FIXNUM -0-> STRING\""))
   (it-sequential "printer-arrow-mult-table one"
-    (let ((arr (make-type-arrow (list type-int) type-string :mult :one)))
-      (expect (search "-1->" (type-to-string arr)) :to-be-truthy)))
+    (expect (type-to-string (make-type-arrow (list type-int) type-string :mult :one))
+            :to-match-inline-snapshot "\"FIXNUM -1-> STRING\""))
   (it-sequential "printer-arrow-mult-table omega"
-    (let ((arr (make-type-arrow (list type-int) type-string :mult :omega)))
-      (expect (search "->" (type-to-string arr)) :to-be-truthy))))
+    (expect (type-to-string (make-type-arrow (list type-int) type-string :mult :omega))
+            :to-match-inline-snapshot "\"FIXNUM -> STRING\""))
+  (it-sequential "printer-arrow-mult-table signals-for-an-unknown-multiplicity"
+    ;; TYPE-ARROW's MULT slot carries no :TYPE restriction (unlike, e.g.,
+    ;; TYPE-ADVANCED's NAME), so %ARROW-STRING's own OR/ERROR fallback --
+    ;; untested by the three known-good keywords above -- is genuinely
+    ;; reachable via a hand-built arrow.
+    (signals error
+        (type-to-string (make-type-arrow (list type-int) type-string :mult :bogus)))))
 
 (it-sequential "printer-type-error-sentinel"
   (let ((e1 (make-type-error :message "unbound x"))
@@ -242,6 +325,61 @@
     (let* ((a (fresh-type-var :name 'a))
            (ty (make-type-mu :var a :body (make-type-union (list type-null a)))))
       (expect (search "μ" (type-to-string ty)) :to-be-truthy))))
+
+;;; ─── type-to-string: type-advanced direct printer coverage ───────────────
+;;; Exercises the property-loop and :EVIDENCE branches of the type-advanced
+;;; method, and %advanced-display-value on nested conses, type-nodes, and
+;;; plain atoms (keywords/numbers are prin1-print-package-independent, so
+;;; they hand-compute deterministically unlike bare symbols).
+
+(it-sequential "printer-type-advanced-generic-head-full"
+  (let ((adv (cl-cc/type:make-type-advanced
+              :feature-id "FR-1802"
+              :args (list 42 (list 1 2) cl-cc/type:type-int)
+              :properties (list (cons :level 3) (cons :mode :fast))
+              :evidence :confirmed)))
+    (expect (type-to-string adv)
+            :to-match-inline-snapshot
+            "\"(ADVANCED FR-1802 42 (1 2) FIXNUM LEVEL 3 MODE :FAST :EVIDENCE :CONFIRMED)\"")))
+
+(it-sequential "printer-type-advanced-registered-surface-head"
+  (expect (type-to-string (cl-cc/type:make-type-dynamic cl-cc/type:type-string))
+          :to-match-inline-snapshot "\"(DYNAMIC STRING)\""))
+
+;;; NOTE: TYPE-TO-STRING's (SYMBOLP SURFACE-HEAD) conjunct (printer.lisp)
+;;; looks untested but is not: TYPE-ADVANCED's NAME slot is declared
+;;; `:type symbol` (types-extended-advanced-node.lisp), so SBCL itself
+;;; guarantees the check can never observe a non-symbol -- confirmed by
+;;; SBCL rejecting a `(%make-type-advanced ... :name "not-a-symbol" ...)`
+;;; attempt here at compile time with "conflicts with its asserted type
+;;; SYMBOL". Left undone, like the other struct-enforced guards documented
+;;; elsewhere in this file's CHANGELOG history.
+
+;;; ─── type-to-string: type-scheme quantified-vars branch ──────────────────
+
+(it-sequential "printer-type-scheme-null-vars"
+  (expect (type-to-string (make-type-scheme nil type-int))
+          :to-match-inline-snapshot "\"FIXNUM\""))
+
+(it-sequential "printer-type-scheme-non-null-vars-exact"
+  (let* ((v (fresh-type-var :name "a"))
+         (scheme (make-type-scheme (list v) v)))
+    (expect (type-to-string scheme) :to-match-inline-snapshot "\"(∀?a. ?a)\"")))
+
+;;; ─── type-to-string: %format-row-fields empty-fields edge cases ──────────
+
+(it-sequential "printer-row-fields-empty-record-closed"
+  (expect (type-to-string (make-type-record :fields nil :row-var nil))
+          :to-match-inline-snapshot "\"{}\""))
+
+(it-sequential "printer-row-fields-empty-record-open"
+  (let ((rv (fresh-type-var :name "rho")))
+    (expect (type-to-string (make-type-record :fields nil :row-var rv))
+            :to-match-inline-snapshot "\"{ | ?rho}\"")))
+
+(it-sequential "printer-row-fields-empty-variant-closed"
+  (expect (type-to-string (make-type-variant :cases nil :row-var nil))
+          :to-match-inline-snapshot "\"<>\""))
 
 ;;; ─── list-interleave ───────────────────────────────────────────────────────
 
