@@ -38,6 +38,30 @@
       flake = false;
     };
 
+    # Test-only: inference-tests.lisp and its four siblings build their input
+    # ASTs with cl-cc/parse:lower-sexp-to-ast, so cl-cc-type/test needs
+    # cl-cc-parse on the registry the same way it needs cl-cc-ast and
+    # cl-weave; the "cl-cc-type" library system itself never depends on it
+    # (see cl-cc-type.asd). cl-cc-parse had no tagged release when this was
+    # written, so v0.1.0 was cut on its then-HEAD
+    # (7316dd82137290082fa1fe03300d3aa388d84117) specifically so this could
+    # follow DEPENDENCY_POLICY.md's "pin to a release tag, not a bare commit"
+    # rule instead of being the one exception to it.
+    cl-cc-parse = {
+      url = "github:nerima-lisp/cl-cc-parse/v0.1.0";
+      flake = false;
+    };
+
+    # Test-only, transitively: cl-cc-parse.asd itself depends on
+    # cl-cc-bootstrap (pre-interned bootstrap symbols and the backend
+    # registration protocol), so it must be on the registry wherever
+    # cl-cc-parse is loaded from a raw source tree, exactly as cl-cc-parse's
+    # own flake.nix wires it. Pinned to cl-cc-bootstrap's v0.1.0 release tag.
+    cl-cc-bootstrap = {
+      url = "github:nerima-lisp/cl-cc-bootstrap/v0.1.0";
+      flake = false;
+    };
+
     # The org flake preset. Everything this file used to spell out by hand —
     # `.asd` version extraction, `forAllSystems`, the treefmt eval wired to
     # both `formatter` and `checks.formatting`, the mkdocs package plus its
@@ -79,6 +103,8 @@
       nixpkgs,
       cl-cc-ast,
       cl-weave,
+      cl-cc-parse,
+      cl-cc-bootstrap,
       cl-nix-forge,
       paredit-cli,
       treefmt-nix,
@@ -163,6 +189,16 @@
           lispSystem = "cl-weave";
           version = ctx.cl.fromAsdSystem (cl-weave + "/cl-weave.asd");
           src = cl-weave;
+        })
+        (ctx.cl.lispDerivation {
+          lispSystem = "cl-cc-bootstrap";
+          version = ctx.cl.fromAsdSystem (cl-cc-bootstrap + "/cl-cc-bootstrap.asd");
+          src = cl-cc-bootstrap;
+        })
+        (ctx.cl.lispDerivation {
+          lispSystem = "cl-cc-parse";
+          version = ctx.cl.fromAsdSystem (cl-cc-parse + "/cl-cc-parse.asd");
+          src = cl-cc-parse;
         })
       ];
 

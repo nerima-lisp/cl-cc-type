@@ -108,6 +108,11 @@
 ;;; cl-cc-ast is listed explicitly even though cl-cc-type already pulls it in:
 ;;; t/package.lisp does (:use :cl-cc/ast), so the tests depend on it directly
 ;;; and should say so rather than lean on a transitive edge.
+;;;
+;;; cl-cc-parse is a test-only dependency: inference-tests.lisp and its four
+;;; siblings build their input ASTs with cl-cc/parse:lower-sexp-to-ast. It is
+;;; not a dependency of the "cl-cc-type" system above -- the type checker
+;;; itself never parses source text, only AST nodes it is handed.
 (defsystem "cl-cc-type/test"
   :description "Test system for cl-cc-type, running under cl-weave."
   :author "takeokunn <bararararatty@gmail.com>"
@@ -117,7 +122,7 @@
   :homepage "https://github.com/nerima-lisp/cl-cc-type"
   :bug-tracker "https://github.com/nerima-lisp/cl-cc-type/issues"
   :source-control (:git "https://github.com/nerima-lisp/cl-cc-type.git")
-  :depends-on ("cl-cc-type" "cl-cc-ast" "cl-weave")
+  :depends-on ("cl-cc-type" "cl-cc-ast" "cl-cc-parse" "cl-weave")
   :pathname "t"
   :serial t
   :components
@@ -126,11 +131,15 @@
    (:file "type-system-inference-test")
    (:file "type-system-effect-test")
    ;; inference-tests, inference-forms-tests, inference-effect-tests,
-   ;; type-inference-tests and type-phase-tests are absent, not disabled: they
-   ;; build their input ASTs with lower-sexp-to-ast, which is defined in the
-   ;; cl-cc monorepo's parse package (packages/parse/src/cl/lower.lisp) and has
-   ;; no standalone repository yet. They come back here, or into an integration
-   ;; suite, once cl-cc-parse is extracted. See docs/src/project/development.md.
+   ;; type-inference-tests and type-phase-tests build their input ASTs with
+   ;; cl-cc/parse:lower-sexp-to-ast. They used to be absent (cl-cc-parse had
+   ;; no standalone repository yet); restored now that it does. See
+   ;; docs/src/project/development.md.
+   (:file "inference-tests")
+   (:file "inference-forms-tests")
+   (:file "inference-effect-tests")
+   (:file "type-inference-tests")
+   (:file "type-phase-tests")
    (:file "types-core-nodes-test")
    ;; type-2026-advanced-registry-tests is likewise absent: it is a monorepo
    ;; governance meta-test that cross-checks docs/type-advanced.md against the

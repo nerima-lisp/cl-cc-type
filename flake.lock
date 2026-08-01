@@ -17,6 +17,40 @@
         "type": "github"
       }
     },
+    "cl-cc-bootstrap": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785472945,
+        "narHash": "sha256-SqFwuU4y+LrHtzVwpBzHlMoYuyODG0NWPBhronIm1Lk=",
+        "owner": "nerima-lisp",
+        "repo": "cl-cc-bootstrap",
+        "rev": "69e32386b11479cff06db145239a565d4858ea76",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.1.0",
+        "repo": "cl-cc-bootstrap",
+        "type": "github"
+      }
+    },
+    "cl-cc-parse": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1785095912,
+        "narHash": "sha256-eAlz2VoCQC7hog6RPrLJGpXAx5mTW+sI+BLeQpJCAYA=",
+        "owner": "nerima-lisp",
+        "repo": "cl-cc-parse",
+        "rev": "7316dd82137290082fa1fe03300d3aa388d84117",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nerima-lisp",
+        "ref": "v0.1.0",
+        "repo": "cl-cc-parse",
+        "type": "github"
+      }
+    },
     "cl-nix-forge": {
       "inputs": {
         "nixpkgs": [
@@ -114,6 +148,8 @@
     "root": {
       "inputs": {
         "cl-cc-ast": "cl-cc-ast",
+        "cl-cc-bootstrap": "cl-cc-bootstrap",
+        "cl-cc-parse": "cl-cc-parse",
         "cl-nix-forge": "cl-nix-forge",
         "cl-weave": "cl-weave",
         "nixpkgs": "nixpkgs",

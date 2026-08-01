@@ -137,41 +137,53 @@ or prove.
 
 ## Tests that did not come across
 
-Six test files from the monorepo are absent from `t/`. They are absent, not
-disabled — there is no way to run them here, so there is nothing to re-enable.
+One test file from the monorepo is absent from `t/`. It is absent, not
+disabled — there is no way to run it here, so there is nothing to re-enable.
 
 | File | Why |
 |---|---|
-| `inference-tests` | Builds input ASTs with `lower-sexp-to-ast` |
-| `inference-forms-tests` | Same |
-| `inference-effect-tests` | Same |
-| `type-inference-tests` | Same |
-| `type-phase-tests` | Same |
 | `type-2026-advanced-registry-tests` | Monorepo governance meta-test |
 
-`lower-sexp-to-ast` turns an s-expression into an AST. It is defined in the
-`cl-cc` monorepo's `parse` package (`packages/parse/src/cl/lower.lisp`), which
-has not been extracted into a repository of its own. cl-cc-type depends on
-`cl-cc-ast` for the AST node types, but constructing an AST from source text is
-a job for the parse stage, and depending on it from here would invert the
-compiler's layering. The five files come back — here or into a cross-repository
-integration suite — once `cl-cc-parse` exists.
-
-The sixth is a different case. `type-2026-advanced-registry-tests` reads
-`docs/type-advanced.md` from the working directory and cross-checks the FR
-headings in it against `cl-cc/test::*known-test-names*`, a registry the
-monorepo's homegrown `deftest` shim maintained. Neither the document nor the
-registry exists outside the monorepo, and the test asserts nothing about
-type-system behaviour: it checks that the monorepo's documentation and its test
-names agree. It is governance tooling and it stayed with the governance.
+`type-2026-advanced-registry-tests` reads `docs/type-advanced.md` from the
+working directory and cross-checks the FR headings in it against
+`cl-cc/test::*known-test-names*`, a registry the monorepo's homegrown
+`deftest` shim maintained. Neither the document nor the registry exists
+outside the monorepo, and the test asserts nothing about type-system
+behaviour: it checks that the monorepo's documentation and its test names
+agree. It is governance tooling and it stayed with the governance.
 
 One visible consequence is in `src/types-extended-advanced-validate.lisp`:
 `%type-advanced-implementation-test-anchor-available-p` queries that same
 registry and returns `t` permissively when it is absent, rather than reporting
 every anchor as unmet.
 
-The remaining 56 files run 1135 cases, covering everything except the
-inference paths that need a parser.
+Five other files — `inference-tests`, `inference-forms-tests`,
+`inference-effect-tests`, `type-inference-tests` and `type-phase-tests` — used
+to be absent for a different reason: they build their input ASTs with
+`lower-sexp-to-ast`, which lived only in the `cl-cc` monorepo's `parse`
+package (`packages/parse/src/cl/lower.lisp`) with no standalone repository of
+its own. That blocker is resolved now that
+[`cl-cc-parse`](https://github.com/nerima-lisp/cl-cc-parse) has been
+extracted; the five files were ported to cl-weave (`cl-cc:lower-sexp-to-ast`
+becoming `cl-cc/parse:lower-sexp-to-ast`) and are back in `t/`.
+`cl-cc-parse` is a test-only dependency of `cl-cc-type/test` — see
+`cl-cc-type.asd` and `flake.nix` — not of the `cl-cc-type` library system
+itself, since the type checker only ever consumes ASTs, never parses source
+text.
+
+Porting those five files surfaced one cl-weave gotcha worth recording: unlike
+the monorepo's old `deftest-each`, cl-weave's `it-each` destructuring-binds
+each case tuple from a *literal, unevaluated* data list (see
+`suite-each-cases` in cl-weave's `src/registration.lisp`), so a bare symbol
+like `type-string` or a `(lambda () ...)` in a case binds the symbol or the
+raw list itself, not the value or a closure. Case tables in the original files
+that relied on evaluating tuple elements (constructing real type nodes, AST
+structs, or closures) were ported as individual `it-sequential` tests instead
+of `it-each`; only case tables of plain data (sexps to lower, symbols compared
+as symbols, numbers, strings, keywords) stayed `it-each`.
+
+The remaining 61 files (56 plus the five restored above) cover everything
+including the inference paths that need a parser.
 
 ## Releasing
 
