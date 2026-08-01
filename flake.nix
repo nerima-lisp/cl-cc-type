@@ -199,6 +199,20 @@
           lispSystem = "cl-cc-parse";
           version = ctx.cl.fromAsdSystem (cl-cc-parse + "/cl-cc-parse.asd");
           src = cl-cc-parse;
+          # This raw source tree is built in an isolated ASDF registry, so
+          # cl-cc-parse must carry its direct ASDF dependencies itself.
+          lispDependencies = [
+            (ctx.cl.lispDerivation {
+              lispSystem = "cl-cc-ast";
+              version = ctx.cl.fromAsdSystem (cl-cc-ast + "/cl-cc-ast.asd");
+              src = cl-cc-ast;
+            })
+            (ctx.cl.lispDerivation {
+              lispSystem = "cl-cc-bootstrap";
+              version = ctx.cl.fromAsdSystem (cl-cc-bootstrap + "/cl-cc-bootstrap.asd");
+              src = cl-cc-bootstrap;
+            })
+          ];
         })
       ];
 
