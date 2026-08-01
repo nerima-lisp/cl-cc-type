@@ -130,7 +130,7 @@
    ;; build their input ASTs with lower-sexp-to-ast, which is defined in the
    ;; cl-cc monorepo's parse package (packages/parse/src/cl/lower.lisp) and has
    ;; no standalone repository yet. They come back here, or into an integration
-   ;; suite, once cl-cc-parse is extracted. See docs/src/development.md.
+   ;; suite, once cl-cc-parse is extracted. See docs/src/project/development.md.
    (:file "types-core-nodes-test")
    ;; type-2026-advanced-registry-tests is likewise absent: it is a monorepo
    ;; governance meta-test that cross-checks docs/type-advanced.md against the

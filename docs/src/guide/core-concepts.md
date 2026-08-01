@@ -4,6 +4,19 @@ Five things account for most of the API: type nodes, type variables,
 substitutions, type environments, and constraints. Everything else is either a
 way to build them or an algorithm that consumes them.
 
+## System name and package name
+
+The system is `cl-cc-type`; the package it defines is `cl-cc/type`. The system
+name follows the repository, and the package name follows the compiler's
+internal namespace (`cl-cc/ast`, `cl-cc/type`, ...), which the repository split
+did not rename.
+
+`cl-cc/type` shadows four `common-lisp` symbols — `type-error`, `subtypep`,
+`upgraded-array-element-type` and `upgraded-complex-part-type` — because it
+defines compiler-domain versions of them. Do not `:use` the package from a
+package that also `:use`s `common-lisp` without deciding which of the two you
+want; qualify the calls or use `:shadowing-import-from`.
+
 ## Type nodes
 
 A type is a struct, not a symbol. All type structs `:include` a common

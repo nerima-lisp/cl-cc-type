@@ -41,7 +41,7 @@ cons, or when a compound form is malformed.
 ; => (-> FIXNUM STRING)
 ```
 
-See also: [`unparse-type`](#unparse-type), [Core Concepts](core-concepts.md#type-nodes).
+See also: [`unparse-type`](#unparse-type), [Core Concepts](../guide/core-concepts.md#type-nodes).
 
 ### `unparse-type`
 
@@ -230,7 +230,7 @@ discharged, typically typeclass and implication constraints.
 
 The eight constraint constructors, plus `constraint-kind`, `constraint-args`,
 `constraint-free-vars` and `constraint-substitute` for inspecting them. See
-[Core Concepts](core-concepts.md#constraints-and-the-solver) for what each one
+[Core Concepts](../guide/core-concepts.md#constraints-and-the-solver) for what each one
 means.
 
 ## Subtyping

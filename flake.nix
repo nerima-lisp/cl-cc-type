@@ -199,7 +199,7 @@
       extraOutputs = ctx: {
         packages = {
           # A sandboxed SB-COVER report. Not part of `checks`:
-          # docs/src/development.md documents coverage as a report, not a
+          # docs/src/project/development.md documents coverage as a report, not a
           # ratchet, so it stays a `nix build`-only package rather than a
           # `nix flake check` gate. `.enableCheck` is required, not
           # `ctx.package`: run-tests.lisp needs cl-weave on the registry, and

@@ -28,11 +28,11 @@ Everything is exported from the `cl-cc/type` package.
 
 ## Where to go next
 
-- [Installation](installation.md) — add cl-cc-type to a flake and to an `.asd`.
-- [Quick Start](quick-start.md) — parse, unify and infer a type end to end.
-- [Core Concepts](core-concepts.md) — type nodes, substitutions and environments.
-- [API Reference](api-reference.md) — the exported symbols.
-- [Development](development.md) — build, test and coverage commands.
+- [Getting Started](getting-started.md) — add cl-cc-type to a flake and to an
+  `.asd`, then parse, unify and infer a type end to end.
+- [Core Concepts](guide/core-concepts.md) — type nodes, substitutions and environments.
+- [API Reference](reference/api.md) — the exported symbols.
+- [Development](project/development.md) — build, test and coverage commands.
 
 ## Scope
 
@@ -40,7 +40,7 @@ cl-cc-type depends on exactly one other package in the org, `cl-cc-ast`, and
 uses it through its public API: the AST node types that constraint collection
 and inference walk. It does not parse source text — turning s-expressions into
 ASTs is the job of the compiler's `parse` stage, which is still part of the
-`cl-cc` monorepo. See [Development](development.md#tests-that-did-not-come-across)
+`cl-cc` monorepo. See [Development](project/development.md#tests-that-did-not-come-across)
 for what that means for the test suite.
 
 Contributing, security and support are org-wide; see the
