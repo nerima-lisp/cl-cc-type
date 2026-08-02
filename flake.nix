@@ -34,7 +34,7 @@
     # Test-only: cl-weave is the org's test framework. Pinned to its release
     # tag, which is what every other repository in the org references.
     cl-weave = {
-      url = "github:nerima-lisp/cl-weave/v1.1.0";
+      url = "github:nerima-lisp/cl-weave/v1.1.4";
       flake = false;
     };
 
