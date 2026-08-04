@@ -72,7 +72,7 @@
     # warning. cl-weave itself already migrated to this preset (v0.3.0); this
     # follows its lead at the newer v0.4.0.
     cl-nix-forge = {
-      url = "github:nerima-lisp/cl-nix-forge/v0.4.0";
+      url = "github:nerima-lisp/cl-nix-forge/v0.5.0";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
