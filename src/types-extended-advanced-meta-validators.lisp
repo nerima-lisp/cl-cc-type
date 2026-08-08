@@ -124,11 +124,21 @@ upcased name) and whose length is at least MIN-LENGTH."
 the fixed-member-list helper selected by KIND — :MEMBER for
 %TYPE-ADVANCED-SYMBOL-NAME-MEMBER-P or :HEAD-FORM for
 %TYPE-ADVANCED-HEAD-SYMBOL-FORM-P — checked against MEMBERS."
-  `(defun ,name (value)
-     ,doc
-     ,(ecase kind
-        (:member `(%type-advanced-symbol-name-member-p value ',members))
-        (:head-form `(%type-advanced-head-symbol-form-p value ',members)))))
+  (let ((predicate-form
+          (ecase kind
+            (:member
+             (list (quote %type-advanced-symbol-name-member-p)
+                   (quote value)
+                   (list (quote quote) members)))
+            (:head-form
+             (list (quote %type-advanced-head-symbol-form-p)
+                   (quote value)
+                   (list (quote quote) members))))))
+    (list (quote defun)
+          name
+          (list (quote value))
+          doc
+          predicate-form)))
 
 (eval-when (:compile-toplevel :load-toplevel :execute)
   (defparameter *type-advanced-symbol-name-predicate-specs*
@@ -165,11 +175,12 @@ MEMBERS DOC), expanded into a DEFUN by DEFINE-TYPE-ADVANCED-SYMBOL-NAME-PREDICAT
   "Expand every entry of *TYPE-ADVANCED-SYMBOL-NAME-PREDICATE-SPECS* into a
 DEFINE-TYPE-ADVANCED-SYMBOL-NAME-PREDICATE form, generating one DEFUN per
 table row."
-  `(progn
-     ,@(mapcar (lambda (spec)
-                 (destructuring-bind (name kind members doc) spec
-                   `(define-type-advanced-symbol-name-predicate ,name ,kind ,members ,doc)))
-               *type-advanced-symbol-name-predicate-specs*)))
+  (cons (quote progn)
+        (mapcar (lambda (spec)
+                  (destructuring-bind (name kind members doc) spec
+                    (list (quote define-type-advanced-symbol-name-predicate)
+                          name kind members doc)))
+                *type-advanced-symbol-name-predicate-specs*)))
 
 (define-type-advanced-symbol-name-predicates)
 
