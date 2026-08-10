@@ -58,3 +58,5 @@ coverage.dat
 /.claude/
 /.serena/
 *.paredit-tmp-*
+
+.worktrees/
