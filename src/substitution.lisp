@@ -46,11 +46,19 @@ Returns (values type t) if found, (values nil nil) otherwise."
 (defun subst-extend (var ty subst)
   "Return a NEW substitution that is SUBST extended with VAR -> TY.
 Does not modify SUBST.  Handles NIL as the empty substitution."
-  (let ((new-bindings (make-hash-table :test #'eql)))
+  (let* ((old-bindings (and subst (substitution-bindings subst)))
+         (new-bindings
+           (if old-bindings
+               (make-hash-table
+                :test (hash-table-test old-bindings)
+                :size (1+ (hash-table-count old-bindings))
+                :rehash-size (hash-table-rehash-size old-bindings)
+                :rehash-threshold (hash-table-rehash-threshold old-bindings))
+               (make-hash-table :test #'eql))))
     ;; Copy old bindings (subst may be nil — treated as empty)
-    (when subst
+    (when old-bindings
       (maphash (lambda (k v) (setf (gethash k new-bindings) v))
-               (substitution-bindings subst)))
+               old-bindings))
     ;; Add new binding
     (setf (gethash (type-var-id var) new-bindings) ty)
     (%make-substitution :bindings   new-bindings
