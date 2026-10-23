@@ -184,6 +184,7 @@
           };
         };
         checks = {
+          asdf-test-system = ctx.cl.mkTestCheck ctx.package;
           orphan-tests =
             let
               pkgs = nixpkgs.legacyPackages.${ctx.system};

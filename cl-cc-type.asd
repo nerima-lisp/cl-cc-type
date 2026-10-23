@@ -203,7 +203,8 @@
    (:file "parser-arrow-quantifier-test")
    (:file "parser-typed-test")
    (:file "exhaustiveness-test")
-   (:file "property-test"))
+   (:file "property-test")
+   (:file "w2-15-control-failure-test"))
   :perform (test-op (op system)
              (declare (ignore op system))
              (unless (uiop:symbol-call :cl-weave
