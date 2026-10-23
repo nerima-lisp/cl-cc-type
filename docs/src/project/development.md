@@ -1,7 +1,8 @@
 # Development
 
-Everything below assumes Nix with flakes enabled. `nix flake check` is the gate
-CI runs; if it passes locally it passes in CI, modulo the platform.
+The Nix commands below require flakes enabled. CI runs `nix flake check` on
+`x86_64-linux`, the only system this flake declares. A default run on another
+system does not execute those checks.
 
 ## Commands
 
@@ -14,21 +15,16 @@ nix build .#docs     # render the documentation site
 nix build .#coverage # SB-COVER report (result/cover-index.html)
 ```
 
-The flake declares two systems, `x86_64-linux` and `aarch64-darwin`. Both are
-verified: the first by the CI runner, the second by running `nix flake check`
-on the development machine. `aarch64-linux` and `x86_64-darwin` are
-deliberately not declared, because nothing checks them.
-
 `flake.nix` itself is one call to
 [cl-nix-forge](https://github.com/nerima-lisp/cl-nix-forge)'s `mkPackageFlake`
 — the org preset that generates the whole standard output table (`packages`,
 `checks`, `apps`, `devShells`, `formatter`, `overlays.default`) from the
-package's own `.asd`, docs directory and dependency list, the same way
-`cl-weave`'s own flake is built. `cl-cc-ast` and `cl-weave` stay `flake =
+package's own `.asd`, docs directory and dependency list. `cl-cc-ast` and
+`cl-weave` stay `flake =
 false` raw source trees — neither publishes a flake of its own — wrapped with
 `cl.lispDerivation` directly in `flake.nix`'s `lispDependencies` /
 `lispCheckDependencies`. `checks.paredit-lint` runs
-[paredit-cli](https://github.com/takeokunn/paredit-cli)'s structural lint
+[paredit-cli](https://github.com/nerima-lisp/paredit-cli)'s structural lint
 (`paredit inspect lint`) over every source file as a `nix flake check` gate,
 not just a manual local command.
 
