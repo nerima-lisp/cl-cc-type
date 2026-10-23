@@ -5,6 +5,8 @@
   (detail)
   "Invalid FFI descriptor: ~A" (ffi-validation-error-detail condition))
 
+(declaim (special type-int type-float type-string type-bool type-null type-char type-any))
+
 (defparameter +ffi-scalar-kinds+
   '(:void :char :short :int :long :float :double :string :bool :size-t)
   "Supported scalar FFI kinds.")

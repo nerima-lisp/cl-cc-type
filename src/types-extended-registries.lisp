@@ -9,6 +9,8 @@
   (fingerprint nil)
   (exported-types nil :type list))
 
+(declaim (special type-any))
+
 (defvar *type-interface-registry* (make-hash-table :test #'equal)
   "Maps module names to loaded type interface summaries.")
 
