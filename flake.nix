@@ -188,13 +188,15 @@
             let
               pkgs = nixpkgs.legacyPackages.${ctx.system};
             in
-            pkgs.runCommand "cl-cc-type-orphan-tests" {
-              src = self;
-              nativeBuildInputs = [ pkgs.python3 ];
-            } ''
-              python3 "$src/scripts/check-orphan-tests.py" "$src"
-              touch "$out"
-            '';
+            pkgs.runCommand "cl-cc-type-orphan-tests"
+              {
+                src = self;
+                nativeBuildInputs = [ pkgs.python3 ];
+              }
+              ''
+                python3 "$src/scripts/check-orphan-tests.py" "$src"
+                touch "$out"
+              '';
           paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
             inherit (ctx) src;
             name = "cl-cc-type-paredit-lint";
