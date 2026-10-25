@@ -1,6 +1,20 @@
 ;;;; stm.lisp — FR-2204 STM types
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/stm)
+
+(defun %runtime-type-designator (type)
+  (cond
+    ((type-primitive-p type) (type-primitive-name type))
+    ((type-advanced-p type) (type-advanced-name type))
+    ((type-constructor-p type) (type-constructor-name type))
+    ((symbolp type) type)
+    (t t)))
+
+(defun %typed-channel-value-matches-p (value type)
+  (let ((designator (%runtime-type-designator type)))
+    (or (eq designator t)
+        (eq designator (quote any))
+        (ignore-errors (typep value designator)))))
 
 (defvar *stm-transaction-active* nil
   "Dynamically true while atomically executes an STM action.")

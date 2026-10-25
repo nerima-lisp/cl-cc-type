@@ -1,6 +1,6 @@
 ;;;; types-extended-security-labels.lisp — Security-label lattice and labeled-value taint tracking
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/security-labels)
 
 (defparameter +security-label-order+
   '(:public :trusted :tainted :secret :top-secret)
@@ -98,3 +98,50 @@ REASON must be present and the target must not be more restrictive than the sour
                         :tainted-p (labeled-value-tainted-p labeled-value)
                         :audit-trail (append (labeled-value-audit-trail labeled-value)
                                              (list (list :declassify source target reason))))))
+
+(in-package :cl-cc/type/security-labels)
+
+(defun %type-advanced-label-rank (label)
+  "Return LABEL's rank in the advanced information-flow lattice."
+  (security-label-rank label))
+
+(defun type-advanced-security-label<= (source target)
+  "Return T when information at SOURCE may flow to TARGET."
+  (security-label<= source target))
+
+(defun %type-advanced-head-name (value)
+  "Return VALUE's list-head symbol name when VALUE is a cons form."
+  (and (consp value)
+       (symbolp (first value))
+       (symbol-name (first value))))
+
+(defun %type-advanced-payload-security-label (value)
+  "Return the explicit security label encoded by VALUE, if any."
+  (let ((head (%type-advanced-head-name value)))
+    (cond
+      ((null head) nil)
+      ((string= head "PUBLIC") :public)
+      ((string= head "TRUSTED") :trusted)
+      ((string= head "TAINTED") :tainted)
+      ((string= head "SECRET") :secret)
+      ((string= head "TOP-SECRET") :top-secret)
+      (t nil))))
+
+(defun %security-labels-validate-information-flow (advanced)
+  "Validate FR-1503 information-flow labels and declassification evidence."
+  (%type-advanced-require-min-args advanced 1)
+  (let* ((source (%type-advanced-payload-security-label
+                  (first (type-advanced-args advanced))))
+         (target (type-advanced-property advanced :flow)))
+    (when (and target (null (%type-advanced-label-rank target)))
+      (%type-advanced-invalid advanced "unknown information-flow target label ~S" target))
+    (when (and source target
+               (not (type-advanced-security-label<= source target))
+               (null (type-advanced-evidence advanced)))
+      (%type-advanced-invalid advanced
+                              "flow from ~S to ~S requires declassification evidence"
+                              source target))))
+
+(eval-when (:load-toplevel :execute)
+  (register-type-advanced-validator
+   "FR-1503" #'%security-labels-validate-information-flow))

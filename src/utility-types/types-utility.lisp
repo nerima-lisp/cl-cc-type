@@ -2,7 +2,7 @@
 ;;;; FR-3303/3304 TS-style utility types (Readonly, Partial, Pick, Omit,
 ;;;; Exclude, Extract)
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/utility-types)
 
 (defstruct frozen-value
   "Runtime wrapper produced by FR-3303 freeze."
@@ -60,7 +60,7 @@
   (unless (type-record-p type)
     (error "pick-type expects a record type"))
   (make-type-record :fields (remove-if-not (lambda (field)
-                                             (member (car field) keys :test #'%field-name=))
+                                             (member (car field) keys :test #'%utility-field-name=))
                                            (type-record-fields type))
                     :row-var nil))
 
@@ -69,7 +69,7 @@
   (unless (type-record-p type)
     (error "omit-type expects a record type"))
   (make-type-record :fields (remove-if (lambda (field)
-                                         (member (car field) keys :test #'%field-name=))
+                                         (member (car field) keys :test #'%utility-field-name=))
                                        (type-record-fields type))
                     :row-var nil))
 
@@ -116,3 +116,6 @@ and NON-NULLABLE-TYPE, which differ only in how they filter the members."
   (unless (type-arrow-p function-type)
     (error "return-type-of expects an arrow type"))
   (type-arrow-return function-type))
+(defun %utility-field-name= (left right)
+  (string= (string-upcase (if (symbolp left) (symbol-name left) (princ-to-string left)))
+           (string-upcase (if (symbolp right) (symbol-name right) (princ-to-string right)))))

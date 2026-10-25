@@ -17,7 +17,7 @@
 ;;;;   type-rigid-equal-p      — equality predicate
 ;;;;   fresh-rigid-var         — constructor
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/checking)
 
 ;;; This file is the "checker" module entry-point; it verifies at compile-time
 ;;; that the expected symbols are defined and provides checker-specific helpers.
@@ -52,6 +52,12 @@
 ;;; ─── Sanity check: ensure critical functions are defined ──────────────────
 ;;;
 ;;; Evaluated at load time to catch missing definitions early.
+
+(defmacro assert-fboundp-in (name source-file)
+  "Assert that NAME is FBOUNDP, reporting SOURCE-FILE as where it should have
+been defined if the assertion fails."
+  `(assert (fboundp ',name) nil
+           ,(format nil "checker.lisp: ~A must be defined in ~A" name source-file)))
 
 (eval-when (:load-toplevel :execute)
   (assert-fboundp-in synthesize "bidirectional.lisp")

@@ -1,12 +1,12 @@
 ;;;; types-extended-advanced-init.lisp — make-type-advanced, %initialize-* functions, top-level call
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/advanced-metadata)
 
 (defun make-type-advanced (&key feature-id (name 'advanced) args properties evidence)
   "Construct a type-advanced node for FEATURE-ID."
   (let ((feature (or (lookup-type-advanced-feature feature-id)
                      (error "Unknown advanced feature id: ~S" feature-id))))
     (multiple-value-bind (normalized-args normalized-properties)
-        (%type-advanced-normalize-graded-keyword-arg
+        (%type-advanced-normalize-payload
          (type-advanced-feature-fr-id feature)
          args
          (%type-advanced-normalize-properties properties))
@@ -32,43 +32,6 @@
                       :args (list represented-type)
                       :properties properties
                       :evidence evidence))
-
-(defun type-advanced-payload-children (value)
-  "Return all type-node values nested inside VALUE."
-  (cond
-    ((typep value 'type-node) (list value))
-    ((consp value)
-     (append (type-advanced-payload-children (car value))
-             (type-advanced-payload-children (cdr value))))
-    (t nil)))
-
-(defun type-advanced-payload-map (fn value)
-  "Map FN over each type-node nested inside VALUE, preserving outer shape."
-  (cond
-    ((typep value 'type-node) (funcall fn value))
-    ((consp value)
-     (cons (type-advanced-payload-map fn (car value))
-           (type-advanced-payload-map fn (cdr value))))
-    (t value)))
-
-(defun type-advanced-payload-equal-p (left right)
-  "Return T when LEFT and RIGHT are structurally equal advanced payloads."
-  (cond
-    ((and (typep left 'type-node) (typep right 'type-node))
-     (type-equal-p left right))
-    ((or (typep left 'type-node) (typep right 'type-node)) nil)
-    ((and (consp left) (consp right))
-     (and (type-advanced-payload-equal-p (car left) (car right))
-          (type-advanced-payload-equal-p (cdr left) (cdr right))))
-    (t (equal left right))))
-
-(defun type-advanced-properties-equal-p (props1 props2)
-  "Return T when two property alists are key-order-insensitively equal."
-  (and (= (length props1) (length props2))
-       (loop for (key . val1) in props1
-             for entry2 = (assoc key props2)
-             always (and entry2
-                         (type-advanced-payload-equal-p val1 (cdr entry2))))))
 
 (defun %initialize-type-advanced-contract-registry ()
   "Populate the explicit advanced semantic contract registry."
@@ -147,3 +110,34 @@
 
 (%initialize-type-advanced-feature-registry)
 
+(in-package :cl-cc/type/advanced-metadata)
+
+(defmethod type-to-string ((ty type-advanced))
+  (let* ((surface-head (type-advanced-name ty))
+         (head (if (and (symbolp surface-head)
+                        (not (string= (symbol-name surface-head) "ADVANCED")))
+                   surface-head
+                    'advanced))
+         (feature-id (type-advanced-feature-id ty)))
+    (with-output-to-string (out)
+      (format out "(~A" (symbol-name head))
+      (when (eq head 'advanced)
+        (format out " ~A" feature-id))
+      (dolist (arg (type-advanced-args ty))
+        (format out " ~A" (%advanced-display-value arg)))
+      (dolist (entry (type-advanced-properties ty))
+        (format out " ~A ~A"
+                (symbol-name (car entry))
+                (%advanced-display-value (cdr entry))))
+      (when (type-advanced-evidence ty)
+        (format out " :EVIDENCE ~A"
+                (%advanced-display-value (type-advanced-evidence ty))))
+      (write-char #\) out))))
+
+(defun %advanced-display-value (value)
+  "Render nested advanced payload values using type printers where applicable."
+  (cond
+    ((typep value 'type-node) (type-to-string value))
+    ((consp value)
+     (format nil "(~{~A~^ ~})" (mapcar #'%advanced-display-value value)))
+    (t (prin1-to-string value))))

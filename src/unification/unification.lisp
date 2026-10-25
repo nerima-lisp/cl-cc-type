@@ -7,7 +7,7 @@
 ;;;;   (type-unify t1 t2 &optional subst) — unify two types → (values subst ok)
 ;;;;   (type-unify-lists ts1 ts2 subst)    — pairwise unification
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/unification)
 
 ;;; ─── Helpers ──────────────────────────────────────────────────────────────
 

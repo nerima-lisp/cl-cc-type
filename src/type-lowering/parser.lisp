@@ -23,7 +23,7 @@
 ;;;;   (Variant (L1 T1) ... | ρ)                 row-polymorphic variant
 ;;;;   (! 1 T)  /  (!1 T)  /  (!ω T)            graded modal types
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-lowering)
 
 ;;; ─── Conditions ───────────────────────────────────────────────────────────
 
@@ -36,12 +36,12 @@
 
 ;;; ─── Main entry ───────────────────────────────────────────────────────────
 
-(defun parse-type-specifier (spec)
+(defmethod parse-type-specifier ((spec t))
   "Parse SPEC into a type-node."
   (typecase spec
     (null   type-null)
     (symbol (if (member (symbol-name spec) '("?" "_") :test #'string=)
-                (make-type-error :message "unknown")   ; ? / _ → gradual typing hole
+                (make-type-error :message "unknown")
                 (parse-primitive-type spec)))
     (cons   (parse-compound-type spec))
     (t      (type-parse-error "Invalid type specifier: ~S" spec))))
@@ -69,10 +69,8 @@
                        :test (lambda (s names) (member s names :test #'string=)))))
     (if entry
         (cdr entry)
-        ;; *TYPE-ALIAS-REGISTRY* is bound by an early DEFVAR in package.lisp
-        ;; specifically so this file can reference it before inference.lisp
-        ;; (which owns the registry's REGISTER-/LOOKUP- API) loads, so no
-        ;; BOUNDP guard is needed here.
+        ;; The registries feature initializes this table before type-lowering
+        ;; is loaded, so no BOUNDP guard is needed here.
         (let ((alias (gethash name *type-alias-registry*)))
           (if alias
               (parse-type-specifier alias)
@@ -183,3 +181,39 @@ Value is the base type name passed to make-type-primitive.")
 ;;; (parse-row-type, parse-constraint-spec, lambda-list parsing,
 ;;;  typed AST defstructs, and utilities are in parser-typed.lisp
 ;;;  which loads after parser-extended.)
+
+(in-package :cl-cc/type/type-lowering)
+
+(defparameter *primitive-type-name-strings*
+  '("FIXNUM" "STRING" "BOOLEAN" "SYMBOL" "CONS" "NULL" "T" "FLOAT" "CHARACTER" "CHAR")
+  "CL primitive type names recognised as type specifiers.")
+
+(defparameter *shorthand-type-name-strings*
+  '("INT" "BOOL" "TOP" "?")
+  "Short-form type names recognised as type specifiers.")
+
+(defparameter *atomic-type-name-strings*
+  (append *primitive-type-name-strings* *shorthand-type-name-strings*)
+  "Union of primitive and shorthand names for single-pass atomic type lookup.")
+
+(defparameter *composite-type-head-strings*
+  '("OR" "AND" "FUNCTION" "VALUES" "CONS" "LIST" "VECTOR" "ARRAY" "OPTION"
+    "->" "->0" "->1" "FORALL" "∀" "=>" "EXISTS" "MU" "REFINE" "RECORD" "VARIANT")
+  "Head symbols that introduce composite type specifiers.")
+
+(defmethod looks-like-type-specifier-p ((spec t))
+  "True iff SPEC looks like it might be a type specifier.
+Uses string= for non-CL symbols to ensure package-independent matching."
+  (flet ((sym-name-in (sym table)
+           (and (symbolp sym) (member (symbol-name sym) table :test #'string=))))
+    (or (and (symbolp spec)
+             (or (sym-name-in spec *atomic-type-name-strings*)
+                 (lookup-type-alias spec)))
+        (and (consp spec)
+             (let ((head (car spec)))
+               (or (sym-name-in head *composite-type-head-strings*)
+                   (type-advanced-head-p head)
+                   (and (symbolp head)
+                        (char= (char (symbol-name head) 0) #\!))))))))
+
+(in-package :cl-cc/type/type-lowering)

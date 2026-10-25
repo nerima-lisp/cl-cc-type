@@ -16,6 +16,58 @@ def component_stem(name):
     return path.with_suffix("").as_posix()
 
 
+def parse_component_forms(source):
+    token_pattern = re.compile(r';[^\n]*|"(?:\\.|[^"\\])*"|[()]|[^\s()]+')
+    forms = []
+    stack = [forms]
+    for match in token_pattern.finditer(source):
+        token = match.group(0)
+        if token.startswith(";"):
+            continue
+        if token == "(":
+            form = []
+            stack[-1].append(form)
+            stack.append(form)
+        elif token == ")":
+            if len(stack) == 1:
+                raise CheckError("unbalanced ASDF test components")
+            stack.pop()
+        elif token.startswith('"'):
+            if not token.endswith('"'):
+                raise CheckError("unterminated string in ASDF test components")
+            stack[-1].append(re.sub(r"\\(.)", r"\1", token[1:-1]))
+        else:
+            stack[-1].append(token.lower())
+    if len(stack) != 1:
+        raise CheckError("unbalanced ASDF test components")
+    return forms
+
+
+def component_paths(forms, prefix=()):
+    paths = set()
+    for form in forms:
+        if not isinstance(form, list) or not form:
+            continue
+        if form[0] == ":module":
+            if len(form) < 2 or not isinstance(form[1], str):
+                raise CheckError("ASDF module has no string path")
+            module = Path(form[1])
+            if module.is_absolute() or ".." in module.parts:
+                raise CheckError(f"invalid ASDF module path: {form[1]}")
+            try:
+                components = form[form.index(":components") + 1]
+            except (ValueError, IndexError):
+                raise CheckError(f"ASDF module has no components: {form[1]}")
+            if not isinstance(components, list):
+                raise CheckError(f"ASDF module components are not a list: {form[1]}")
+            paths.update(component_paths(components, prefix + module.parts))
+        elif form[0] in {":file", ":static-file"}:
+            if len(form) < 2 or not isinstance(form[1], str):
+                raise CheckError(f"ASDF {form[0]} component has no string path")
+            paths.add(Path(*prefix, component_stem(form[1])).as_posix())
+    return paths
+
+
 def read_test_system(root):
     asd_path = root / "cl-cc-type.asd"
     source = asd_path.read_text(encoding="utf-8")
@@ -36,18 +88,12 @@ def read_test_system(root):
     component_forms = definition[
         components.end() : components.end() + perform.start()
     ]
-    component_forms = "\n".join(
-        line for line in component_forms.splitlines()
-        if not line.lstrip().startswith(";")
-    )
-    names = {
-        component_stem(match.group(1))
-        for match in re.finditer(
-            r'\(:file\s+"([^"]+)"(?=[ \t)]|$)', component_forms
-        )
-    }
+    forms = parse_component_forms(component_forms)
+    if len(forms) != 1 or not isinstance(forms[0], list):
+        raise CheckError("test system has malformed :components")
+    names = component_paths(forms[0])
     if not names:
-        raise CheckError("test system has no :file components")
+        raise CheckError("test system has no file components")
     if "package" not in names:
         raise CheckError('test system is missing the "package" component')
 

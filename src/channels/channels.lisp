@@ -1,6 +1,6 @@
 ;;;; channels.lisp — FR-2202 typed channels
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/channels)
 
 (defstruct (typed-channel (:constructor %make-typed-channel))
   "Concrete channel carrying values of PAYLOAD-TYPE with optional CAPACITY."

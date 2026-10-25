@@ -1,7 +1,7 @@
 ;;;; types-extended-nodes.lisp
 ;;;; Effect/GADT/constraint structs, singletons, type-equal-p, type-children,
 ;;;; type-free-vars
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-model)
 
 ;;; ─── type-effect-row ──────────────────────────────────────────────────────
 
@@ -88,8 +88,6 @@ MESSAGE: a human-readable description of the type error."
 (defvar type-any     (make-type-primitive :name 't)       "top type (any).")
 (defvar type-char    (make-type-primitive :name 'character) "character type.")
 (defvar type-unit    (make-type-primitive :name 'null)    "unit type (alias null).")
-
-(%initialize-advanced-dispatch-registries)
 
 ;;; ─── Effect row singletons ────────────────────────────────────────────────
 
@@ -313,3 +311,42 @@ can live elsewhere (free vars, occurs check, zonking, printers, etc.).")
 (defun type-free-vars (ty)
   "Return the deduplicated list of free type-var nodes in TY."
   (remove-duplicates (%type-free-vars-list ty) :test #'type-var-equal-p))
+
+(in-package :cl-cc/type/type-model)
+
+(defun type-advanced-payload-children (value)
+  "Return all type-node values nested inside VALUE."
+  (cond
+    ((typep value 'type-node) (list value))
+    ((consp value)
+     (append (type-advanced-payload-children (car value))
+             (type-advanced-payload-children (cdr value))))
+    (t nil)))
+
+(defun type-advanced-payload-map (fn value)
+  "Map FN over each type-node nested inside VALUE, preserving outer shape."
+  (cond
+    ((typep value 'type-node) (funcall fn value))
+    ((consp value)
+     (cons (type-advanced-payload-map fn (car value))
+           (type-advanced-payload-map fn (cdr value))))
+    (t value)))
+
+(defun type-advanced-payload-equal-p (left right)
+  "Return T when LEFT and RIGHT are structurally equal advanced payloads."
+  (cond
+    ((and (typep left 'type-node) (typep right 'type-node))
+     (type-equal-p left right))
+    ((or (typep left 'type-node) (typep right 'type-node)) nil)
+    ((and (consp left) (consp right))
+     (and (type-advanced-payload-equal-p (car left) (car right))
+          (type-advanced-payload-equal-p (cdr left) (cdr right))))
+    (t (equal left right))))
+
+(defun type-advanced-properties-equal-p (props1 props2)
+  "Return T when two property alists are key-order-insensitively equal."
+  (and (= (length props1) (length props2))
+       (loop for (key . val1) in props1
+             for entry2 = (assoc key props2)
+             always (and entry2
+                         (type-advanced-payload-equal-p val1 (cdr entry2))))))

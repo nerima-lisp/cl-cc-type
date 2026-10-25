@@ -1,5 +1,5 @@
 ;;;; inference-forms-advanced.lisp — Advanced call policy helpers
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 
 (defun check-qualified-constraints (func-type subst env)
   "If FUNC-TYPE is a qualified type (Eq a) => ..., verify each constraint

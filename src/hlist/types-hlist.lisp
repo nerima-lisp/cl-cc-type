@@ -1,6 +1,6 @@
 ;;;; types-hlist.lisp — FR-1803 heterogeneous list (HList) types
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/hlist)
 
 (defun make-hlist-type (types)
   "Construct a FR-1803 HList type."

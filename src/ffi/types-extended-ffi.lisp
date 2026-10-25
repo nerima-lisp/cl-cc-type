@@ -1,5 +1,5 @@
 ;;;; types-extended-ffi.lisp — FFI type descriptors
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/ffi)
 
 (define-simple-condition ffi-validation-error type-system-error
   (detail)
@@ -198,3 +198,13 @@
                         (ffi-descriptor-lisp-type
                          (ffi-function-descriptor-return-type normalized)))))))
 
+(defun %ffi-validate-type-safe-ffi (advanced)
+  "Validate FR-2103 typed FFI descriptors at the boundary shape level."
+  (%type-advanced-require-min-args advanced 1)
+  (dolist (arg (type-advanced-args advanced))
+    (unless (ffi-descriptor-form-valid-p arg)
+      (%type-advanced-invalid advanced "malformed FFI descriptor ~S" arg))))
+
+(eval-when (:load-toplevel :execute)
+  (register-type-advanced-validator
+   "FR-2103" #'%ffi-validate-type-safe-ffi))

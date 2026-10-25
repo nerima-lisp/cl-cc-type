@@ -1,6 +1,6 @@
 ;;;; types-extended-advanced-data.lisp — Semantic contract specs for every tracked advanced FR id
 ;;;; Evidence specs live in types-extended-advanced-evidence-data.lisp.
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/advanced-metadata)
 
 (defparameter +type-advanced-contract-specs+
   (append
@@ -10,7 +10,7 @@
    (list (%type-advanced-contract-spec
           "FR-1503" :safety
           :min-args 1
-          :custom-validator '%type-advanced-validate-information-flow))
+          :custom-validator "FR-1503"))
    (%type-advanced-contract-specs '("FR-1601" "FR-1602" "FR-1603" "FR-1604" "FR-1605")
                                   :inference
                                   :min-args 1)
@@ -21,7 +21,7 @@
           :property-predicates '((:dependency-graph . %type-advanced-symbolic-designator-p)
                                  (:cache . %type-advanced-symbolic-designator-p)
                                  (:lsp . %type-advanced-boolean-value-p))
-          :custom-validator '%type-advanced-validate-incremental-checking))
+          :custom-validator "FR-1606"))
    (%type-advanced-contract-specs '("FR-1701" "FR-1702" "FR-1704" "FR-1705")
                                   :type-level-programming
                                   :min-args 1)
@@ -31,7 +31,7 @@
           :required-properties '(:stage :transition)
           :property-predicates '((:stage . %type-advanced-stage-designator-p)
                                  (:transition . %type-advanced-stage-transition-p))
-          :custom-validator '%type-advanced-validate-staging))
+          :custom-validator "FR-1703"))
    (%type-advanced-contract-specs '("FR-1802" "FR-1803" "FR-1804" "FR-1805" "FR-1806")
                                   :functional-abstractions
                                   :min-args 1)
@@ -40,17 +40,17 @@
           :exact-args 1
           :required-properties '(:lawful)
           :property-predicates '((:lawful . %type-advanced-boolean-value-p))
-          :custom-validator '%type-advanced-validate-optics))
+          :custom-validator "FR-1801"))
    (%type-advanced-contract-specs '("FR-1901" "FR-1902" "FR-1903" "FR-1904" "FR-1905" "FR-1906")
                                   :totality
                                   :min-args 1
                                   :requires-evidence-p t
-                                  :custom-validator '%type-advanced-validate-proof-like)
+                                  :custom-validator :feature-id)
    (%type-advanced-contract-specs '("FR-2001" "FR-2002" "FR-2003" "FR-2004" "FR-2005")
                                   :proofs
                                   :min-args 1
                                   :requires-evidence-p t
-                                  :custom-validator '%type-advanced-validate-proof-like)
+                                  :custom-validator :feature-id)
    (%type-advanced-contract-specs '("FR-2102" "FR-2104" "FR-2105" "FR-2106" "FR-2107")
                                   :type-directed-runtime
                                   :min-args 1)
@@ -61,12 +61,12 @@
           :property-predicates '((:generator . %type-advanced-generator-form-p)
                                  (:coverage-target . %type-advanced-positive-integer-p)
                                  (:samples . %type-advanced-positive-integer-p))
-          :custom-validator '%type-advanced-validate-test-generation)
+          :custom-validator "FR-2101")
          (%type-advanced-contract-spec
           "FR-2103" :type-directed-runtime
           :min-args 1
           :property-predicates '((:abi . %type-advanced-symbolic-designator-p))
-          :custom-validator '%type-advanced-validate-type-safe-ffi))
+          :custom-validator "FR-2103"))
    (%type-advanced-contract-specs '("FR-2201" "FR-2202" "FR-2203" "FR-2204" "FR-2205" "FR-2206")
                                   :concurrency
                                   :min-args 1)
@@ -77,7 +77,7 @@
           "FR-2302" :numeric
           :exact-args 1
           :required-properties '(:unit)
-          :property-predicates '((:unit . unit-designator-p))))
+          :custom-validator "FR-2302"))
    (%type-advanced-contract-specs '("FR-2401" "FR-2402" "FR-2403" "FR-2404")
                                   :constraints
                                   :min-args 1)
@@ -93,7 +93,7 @@
           :required-properties '(:solver :theory)
           :property-predicates '((:solver . %type-advanced-smt-solver-p)
                                  (:theory . %type-advanced-smt-theory-p))
-          :custom-validator '%type-advanced-validate-smt-integration))
+          :custom-validator "FR-2406"))
    (%type-advanced-contract-specs '("FR-2503" "FR-2504" "FR-2505")
                                   :gradual-runtime
                                   :min-args 1)
@@ -116,7 +116,7 @@
           :property-predicates '((:domain . %type-advanced-symbolic-designator-p)
                                  (:widening . %type-advanced-symbolic-designator-p)
                                  (:narrowing . %type-advanced-symbolic-designator-p))
-          :custom-validator '%type-advanced-validate-abstract-interpretation))
+          :custom-validator "FR-2804"))
    (%type-advanced-contract-specs '("FR-2901" "FR-2903" "FR-2904" "FR-2905")
                                   :analysis
                                   :min-args 1)
@@ -126,7 +126,7 @@
           :required-properties '(:disjoint :alias-class)
           :property-predicates '((:disjoint . %type-advanced-boolean-value-p)
                                  (:alias-class . %type-advanced-symbolic-designator-p))
-          :custom-validator '%type-advanced-validate-alias-analysis))
+          :custom-validator "FR-2902"))
    (%type-advanced-contract-specs '("FR-3001" "FR-3004" "FR-3005")
                                   :tooling
                                   :min-args 1)
@@ -136,14 +136,14 @@
           :required-properties '(:hook :phase)
           :property-predicates '((:hook . %type-advanced-symbolic-designator-p)
                                  (:phase . %type-advanced-plugin-phase-p))
-          :custom-validator '%type-advanced-validate-plugins)
+          :custom-validator "FR-3002")
          (%type-advanced-contract-spec
           "FR-3003" :tooling
           :min-args 1
           :required-properties '(:search :fuel)
           :property-predicates '((:search . %type-advanced-synthesis-strategy-p)
                                  (:fuel . %type-advanced-positive-integer-p))
-          :custom-validator '%type-advanced-validate-synthesis))
+          :custom-validator "FR-3003"))
    (%type-advanced-contract-specs '("FR-3102" "FR-3103" "FR-3104")
                                   :linear-logic
                                   :min-args 1)
@@ -154,52 +154,52 @@
    (list (%type-advanced-contract-spec
           "FR-3205" :subtyping
           :exact-args 2
-          :custom-validator '%type-advanced-validate-brand))
+          :custom-validator "FR-3205"))
    (list (%type-advanced-contract-spec
           "FR-3301" :structural-programming
           :exact-args 1
           :required-properties '(:transform)
           :property-predicates '((:transform . %type-advanced-mapped-transform-p))
-          :custom-validator '%type-advanced-validate-mapped-types)
+          :custom-validator "FR-3301")
          (%type-advanced-contract-spec
           "FR-3302" :structural-programming
           :exact-args 1
           :required-properties '(:extends :then :else)
           :property-predicates '((:infer . %type-advanced-symbolic-designator-p))
-          :custom-validator '%type-advanced-validate-conditional-types)
+          :custom-validator "FR-3302")
          (%type-advanced-contract-spec "FR-3303" :structural-programming :exact-args 1)
          (%type-advanced-contract-spec "FR-3304" :structural-programming :exact-args 1)
          (%type-advanced-contract-spec
           "FR-3305" :structural-programming
           :min-args 1
-          :custom-validator '%type-advanced-validate-route))
+          :custom-validator "FR-3305"))
    (list (%type-advanced-contract-spec
           "FR-3401" :dependent-foundations
           :exact-args 2
-          :custom-validator '%type-advanced-validate-qtt)
+          :custom-validator "FR-3401")
          (%type-advanced-contract-spec
           "FR-3402" :dependent-foundations
           :exact-args 2
-          :custom-validator '%type-advanced-validate-graded)
+          :custom-validator "FR-3402")
          (%type-advanced-contract-spec
           "FR-3403" :dependent-foundations
           :exact-args 1
           :required-properties '(:encoding)
           :property-predicates '((:encoding . %type-advanced-encoding-kind-p))
-          :custom-validator '%type-advanced-validate-encodings)
+          :custom-validator "FR-3403")
          (%type-advanced-contract-spec
           "FR-3404" :dependent-foundations
           :exact-args 2
-          :custom-validator '%type-advanced-validate-extensible-effects)
+          :custom-validator "FR-3404")
          (%type-advanced-contract-spec
           "FR-3405" :dependent-foundations
           :exact-args 2
           :required-properties '(:mode)
           :property-predicates '((:mode . %type-advanced-equality-mode-p))
-          :custom-validator '%type-advanced-validate-type-theory-equality)
+          :custom-validator "FR-3405")
           (%type-advanced-contract-spec
            "FR-3406" :dependent-foundations
            :min-args 1
            :requires-evidence-p t
-           :custom-validator '%type-advanced-validate-proof-like)))
+           :custom-validator :feature-id)))
   "Explicit per-FR semantic contracts for every tracked advanced feature id.")

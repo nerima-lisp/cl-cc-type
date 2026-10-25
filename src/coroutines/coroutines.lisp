@@ -1,6 +1,20 @@
 ;;;; coroutines.lisp — FR-2205 coroutine and generator types
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/coroutines)
+
+(defun %runtime-type-designator (type)
+  (cond
+    ((type-primitive-p type) (type-primitive-name type))
+    ((type-advanced-p type) (type-advanced-name type))
+    ((type-constructor-p type) (type-constructor-name type))
+    ((symbolp type) type)
+    (t t)))
+
+(defun %typed-channel-value-matches-p (value type)
+  (let ((designator (%runtime-type-designator type)))
+    (or (eq designator t)
+        (eq designator (quote any))
+        (ignore-errors (typep value designator)))))
 
 (defstruct (typed-generator (:constructor %make-typed-generator))
   "A generator yielding YIELD-TYPE values and finally returning RETURN-TYPE."

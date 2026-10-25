@@ -1,6 +1,6 @@
 ;;;; types-extended-concurrency.lisp — Concurrency traits and Send/Sync registry
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/concurrency)
 
 ;;; ─── Concrete advanced semantic APIs (merged for Nix flake source) ─────────
 

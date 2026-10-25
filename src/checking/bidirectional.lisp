@@ -9,7 +9,7 @@
 ;;;
 ;;; Extracted from inference.lisp.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/checking)
 
 (defun synthesize (ast env)
   "Synthesize type of AST in ENV (bottom-up mode).

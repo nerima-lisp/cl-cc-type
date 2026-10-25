@@ -14,7 +14,7 @@
 ;;;;   (->0 A B)  — function is irrelevant (erased at runtime)
 ;;;;   (-> A B)   — ordinary unrestricted function (ω default)
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/quantities)
 
 ;;; ─── Multiplicity values ──────────────────────────────────────────────────
 

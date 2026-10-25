@@ -16,7 +16,7 @@
 ;;;;   infer-with-effects        — infer type + effect row
 ;;;;   check-body-effects        — check body effects ≤ expected
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/effects)
 
 ;;; ─── Effect definition ────────────────────────────────────────────────────
 
@@ -78,3 +78,58 @@ Open row2 (with a row-var) is treated as a superset of everything."
 
 ;;; NOTE: infer-effects, infer-with-effects, check-body-effects are defined
 ;;;       in inference.lisp which loads later with full AST-walker implementations.
+
+(in-package :cl-cc/type/effects)
+
+(defun effect-row-member-p (name row)
+  "True iff an effect named NAME appears in ROW's effects list."
+  (and (type-effect-row-p row)
+       (some (lambda (e) (eq (type-effect-op-name e) name))
+             (type-effect-row-effects row))))
+
+(defun effect-row-restrict (name row)
+  "Return a new type-effect-row with all effects named NAME removed."
+  (make-type-effect-row
+   :effects (remove-if (lambda (e) (eq (type-effect-op-name e) name))
+                       (type-effect-row-effects row))
+   :row-var (type-effect-row-row-var row)))
+
+;;; ─── Effect row operations ────────────────────────────────────────────────
+
+(defun effect-row-extend (effect-op row)
+  "Return a new type-effect-row with EFFECT-OP prepended.
+EFFECT-OP must be a type-effect-op.
+Does not deduplicate — callers that need deduplication should use
+effect-row-union from effect.lisp."
+  (make-type-effect-row
+   :effects (cons effect-op (type-effect-row-effects row))
+   :row-var (type-effect-row-row-var row)))
+
+(in-package :cl-cc/type/effects)
+
+(defmethod type-to-string ((ty type-handler))
+  (format nil "[~A => ~A / ~A]"
+          (type-to-string (type-handler-effect ty))
+          (type-to-string (type-handler-input ty))
+          (type-to-string (type-handler-output ty))))
+
+(in-package :cl-cc/type/effects)
+
+(defmethod type-to-string ((ty type-effect-op))
+  (if (type-effect-op-args ty)
+      (format nil "(~A~{ ~A~})"
+              (type-effect-op-name ty)
+              (mapcar #'type-to-string (type-effect-op-args ty)))
+      (symbol-name (type-effect-op-name ty))))
+
+;;; ─── Effect system types ──────────────────────────────────────────────────
+
+(defmethod type-to-string ((ty type-effect-row))
+  (let ((effs (type-effect-row-effects ty))
+        (rv   (type-effect-row-row-var ty)))
+    (cond
+      ((and (null effs) (null rv)) "{}")
+      ((null rv)   (format nil "{~{~A~^, ~}}"     (mapcar #'type-to-string effs)))
+      ((null effs) (format nil "{| ~A}"             (type-to-string rv)))
+      (t           (format nil "{~{~A~^, ~} | ~A}" (mapcar #'type-to-string effs)
+                                                     (type-to-string rv))))))

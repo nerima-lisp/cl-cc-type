@@ -1,7 +1,7 @@
 ;;;; types-extended-advanced-validate.lisp — Validation logic for advanced type nodes
 ;;;; Extracted from types-extended-advanced-data.lisp.
 ;;;; Load order: after types-extended-advanced-data, before types-extended-advanced-init.
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/advanced-metadata)
 
 (defun %make-type-advanced-contract-from-spec (spec)
   "Construct a semantic contract object from plist SPEC."
@@ -13,7 +13,16 @@
 
 (defun %type-advanced-implementation-api-available-p (symbol)
   "Return T when SYMBOL names a loaded concrete helper API."
-  (and (symbolp symbol) (fboundp symbol)))
+  (and (symbolp symbol)
+       (or (fboundp symbol)
+           (loop for package in (list-all-packages)
+                 for package-name = (package-name package)
+                 thereis
+                   (and (or (string= package-name "CL-CC/TYPE")
+                            (and (>= (length package-name) 11)
+                                 (string= package-name "CL-CC/TYPE/" :end2 11)))
+                        (let ((candidate (find-symbol (symbol-name symbol) package)))
+                          (and candidate (fboundp candidate))))))))
 
 (defun %type-advanced-implementation-module-present-p (path)
   "Return T when PATH identifies a source module present in this checkout."
@@ -110,9 +119,9 @@ matching the existing fallback for when the test package itself is absent."
                               "evidence failed contract predicate ~S with value ~S"
                               evidence-predicate
                               evidence)))
-  (let ((custom-validator (type-advanced-contract-custom-validator contract)))
-    (when custom-validator
-      (funcall (%type-advanced-resolve-checker custom-validator) advanced)))
+  (let ((validator-id (type-advanced-contract-custom-validator contract)))
+    (when validator-id
+      (%type-advanced-dispatch-validator validator-id advanced)))
   advanced)
 
 (defun %type-advanced-validate-by-feature (advanced)

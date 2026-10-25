@@ -5,7 +5,7 @@
 ;;;; nodes, deftype forms for typep-based tests, and the early type-to-string stub.
 ;;;; Loads after types-extended.lisp.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-model)
 
 ;;; ─── Type Schemes ─────────────────────────────────────────────────────────
 
@@ -120,11 +120,6 @@ DICT-BINDINGS: alist of ((class-name . type-key) . method-alist) for typeclass d
   '(or type-app (and type-union (satisfies %option-type-constructor-p))))
 
 ;;; ─── Type printer protocol ────────────────────────────────────────────────
-
-(defgeneric type-to-string (ty)
-  (:documentation "Convert a type-node TY to a human-readable string.")
-  (:method (ty)
-    (format nil "#<type ~A>" (type-of ty))))
 
 (defmethod type-to-string ((ty null))
   "NIL")

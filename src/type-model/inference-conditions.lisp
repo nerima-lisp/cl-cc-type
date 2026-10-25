@@ -1,4 +1,5 @@
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-model)
+(define-condition type-system-error (error) ())
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ;;; Type Inference — Condition Classes
 ;;;

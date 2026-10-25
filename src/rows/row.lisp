@@ -14,7 +14,7 @@
 ;;;;   effect-row-restrict — remove an effect by name from an effect row
 ;;;;   effect-row-member-p — test if an effect name is in an effect row
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/rows)
 
 ;;; ─── Record row operations ────────────────────────────────────────────────
 
@@ -67,26 +67,10 @@ Works for type-record, type-variant, and type-effect-row."
   "True iff ROW is an open row (row-var is non-nil)."
   (not (row-closed-p row)))
 
-;;; ─── Effect row operations ────────────────────────────────────────────────
+(in-package :cl-cc/type/rows)
 
-(defun effect-row-extend (effect-op row)
-  "Return a new type-effect-row with EFFECT-OP prepended.
-EFFECT-OP must be a type-effect-op.
-Does not deduplicate — callers that need deduplication should use
-effect-row-union from effect.lisp."
-  (make-type-effect-row
-   :effects (cons effect-op (type-effect-row-effects row))
-   :row-var (type-effect-row-row-var row)))
+(defmethod type-to-string ((ty type-variant))
+  (%format-row-fields (type-variant-cases ty) "<" ">" (type-variant-row-var ty)))
 
-(defun effect-row-restrict (name row)
-  "Return a new type-effect-row with all effects named NAME removed."
-  (make-type-effect-row
-   :effects (remove-if (lambda (e) (eq (type-effect-op-name e) name))
-                       (type-effect-row-effects row))
-   :row-var (type-effect-row-row-var row)))
-
-(defun effect-row-member-p (name row)
-  "True iff an effect named NAME appears in ROW's effects list."
-  (and (type-effect-row-p row)
-       (some (lambda (e) (eq (type-effect-op-name e) name))
-             (type-effect-row-effects row))))
+(defmethod type-to-string ((ty type-record))
+  (%format-row-fields (type-record-fields ty) "{" "}" (type-record-row-var ty)))

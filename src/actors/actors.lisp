@@ -1,6 +1,20 @@
 ;;;; actors.lisp — FR-2203 typed actors
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/actors)
+
+(defun %runtime-type-designator (type)
+  (cond
+    ((type-primitive-p type) (type-primitive-name type))
+    ((type-advanced-p type) (type-advanced-name type))
+    ((type-constructor-p type) (type-constructor-name type))
+    ((symbolp type) type)
+    (t t)))
+
+(defun %typed-channel-value-matches-p (value type)
+  (let ((designator (%runtime-type-designator type)))
+    (or (eq designator t)
+        (eq designator (quote any))
+        (ignore-errors (typep value designator)))))
 
 (defstruct (typed-actor-ref (:constructor %make-typed-actor-ref))
   "A typed actor reference that accepts only MESSAGE-TYPE-compatible messages."

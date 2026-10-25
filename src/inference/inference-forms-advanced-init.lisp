@@ -1,5 +1,5 @@
 ;;;; inference-forms-advanced-init.lisp — Advanced call policy specs, registry init, call inference
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 
 (defparameter +advanced-call-policy-specs+
   '((spawn :min-args 1 :validator %validate-advanced-spawn-call

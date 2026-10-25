@@ -7,7 +7,7 @@
 ;;; Depends on substitution.lisp (substitution struct, zonk, subst-lookup).
 ;;; Load order: immediately after substitution.lisp.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/unification)
 
 ;;; ─── Occurs check ─────────────────────────────────────────────────────────
 

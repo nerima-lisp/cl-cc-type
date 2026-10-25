@@ -1,6 +1,6 @@
 ;;;; types-extended-capabilities.lisp — Capability sets, permission implication, restriction
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/capabilities)
 
 (defstruct (capability (:constructor %make-capability))
   "A concrete capability set."

@@ -1,5 +1,5 @@
 ;;;; types-extended-qtt.lisp — QTT bindings, graded types
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/quantities)
 
 (defstruct (qtt-binding (:constructor %make-qtt-binding))
   "A QTT binding carrying a concrete multiplicity."
@@ -231,4 +231,44 @@ over ADD on both sides, for every triple in ELEMENTS."
    :multiply #'multiplicity*
    :preorder #'multiplicity<=))
 
+(in-package :cl-cc/type/quantities)
 
+(defun %type-advanced-multiplicity-p (value)
+  "Return T when VALUE is a supported multiplicity/grade designator."
+  (grade-designator-p value))
+
+(defun %type-advanced-normalize-graded-keyword-arg (feature-id args properties)
+  "Turn (graded :grade T) parsed as a keyword property back into positional args."
+  (if (and (member feature-id '("FR-3401" "FR-3402") :test #'string=)
+           (null args)
+           (= (length properties) 1))
+      (let ((entry (first properties)))
+        (values (list (car entry) (cdr entry)) nil))
+      (values args properties)))
+
+(progn
+  (defun %type-advanced-validate-qtt (advanced)
+    "Validate FR-3401 quantitative multiplicity payloads."
+    (let ((value (first (type-advanced-args advanced))))
+      (unless (valid-multiplicity-p value)
+        (%type-advanced-invalid advanced "unsupported QTT multiplicity ~S" value))))
+  (defun %type-advanced-validate-graded (advanced)
+    "Validate FR-3402 graded-type multiplicity payloads."
+    (let ((value (first (type-advanced-args advanced))))
+      (unless (%type-advanced-multiplicity-p value)
+        (%type-advanced-invalid advanced "unsupported multiplicity/grade ~S" value))))
+  (defun %normalize-qtt-arguments (args properties)
+    (%type-advanced-normalize-graded-keyword-arg "FR-3401" args properties))
+  (defun %normalize-graded-arguments (args properties)
+    (%type-advanced-normalize-graded-keyword-arg "FR-3402" args properties))
+  (register-type-advanced-validator "FR-3401" #'%type-advanced-validate-qtt)
+  (register-type-advanced-validator "FR-3402" #'%type-advanced-validate-graded)
+  (register-type-advanced-normalizer "FR-3401" #'%normalize-qtt-arguments)
+  (register-type-advanced-normalizer "FR-3402" #'%normalize-graded-arguments))
+
+(in-package :cl-cc/type/quantities)
+
+(defmethod type-to-string ((ty type-linear))
+  (format nil "!~A ~A"
+          (mult-to-string (type-linear-grade ty))
+          (type-to-string (type-linear-base ty))))

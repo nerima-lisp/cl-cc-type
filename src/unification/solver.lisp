@@ -8,7 +8,7 @@
 ;;;;   collect-constraints (ast env)
 ;;;;       -> (values type constraints)
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/unification)
 
 ;;; ─── per-kind constraint solvers ──────────────────────────────────────────
 ;;; Each helper solves one constraint kind against CURRENT-SUBST and returns
@@ -35,36 +35,6 @@
         (values current-subst nil)
         ;; Record as residual (don't blow up, let caller decide)
         (values current-subst c))))
-
-(defun %solve-typeclass-constraint (c current-subst)
-  "Solve a (:typeclass C tau) instance-check constraint."
-  (let* ((args       (constraint-args c))
-         (class-name (first args))
-         (tau        (zonk (second args) current-subst)))
-    (cond
-      ;; Free variable: defer (becomes residual until zonked)
-      ((type-var-p tau)
-       (if (and (default-numeric-typeclass-p class-name)
-                *default-numeric-type*)
-           (multiple-value-bind (new-subst ok)
-               (type-unify tau *default-numeric-type* current-subst)
-             (if ok
-                 (values new-subst nil)
-                 (values current-subst c)))
-           (values current-subst c)))
-      ;; Unknown participates in gradual typing, so do not retain a
-      ;; residual typeclass obligation for it. Other type errors stay
-      ;; residual so callers can surface the failure explicitly.
-      ((type-unknown-p tau)
-       (values current-subst nil))
-      ((type-error-p tau)
-       (values current-subst c))
-      ;; Check instance
-      ((has-typeclass-instance-p class-name tau)
-       (values current-subst nil))
-      ;; No instance found: residual (caller may report error)
-      (t
-       (values current-subst c)))))
 
 (defun %solve-implication-constraint (c current-subst)
   "Solve a (:implication vars given wanted) GADT / rank-N constraint.
@@ -162,32 +132,42 @@ stay residual so the caller can refine them later."
 
 (defun solve-constraints (constraints subst)
   "OutsideIn(X) constraint solver.
-CONSTRAINTS is a list of constraint structs (from constraint.lisp).
-SUBST       is a substitution (from substitution.lisp).
 
-Returns (values new-subst residual-constraints).
-  new-subst   — the substitution extended by equality solving.
-  residual    — constraints that could not be discharged (typeclass, implication)."
+CONSTRAINTS is a list of constraint structs.
+SUBST is a substitution.
+
+Returns (values new-subst residual-constraints)."
   (unless subst (setf subst (make-substitution)))
   (let ((residual nil)
         (current-subst subst))
     (dolist (c constraints)
-      ;; Apply current substitution before inspecting
       (let ((c (constraint-substitute c current-subst)))
         (multiple-value-bind (new-subst r)
-            (ecase (constraint-kind c)
-              (:equal          (%solve-equal-constraint         c current-subst))
-              (:subtype        (%solve-subtype-constraint       c current-subst))
-              (:typeclass      (%solve-typeclass-constraint     c current-subst))
-              (:implication    (%solve-implication-constraint   c current-subst))
-              (:effect-subset  (%solve-effect-subset-constraint c current-subst))
-              (:mult-leq       (%solve-mult-leq-constraint      c current-subst))
-              (:row-lacks      (%solve-row-lacks-constraint     c current-subst))
-              (:kind-equal     (%solve-kind-equal-constraint    c current-subst)))
+            (%resolve-constraint c current-subst)
           (setf current-subst new-subst)
           (when r (push r residual)))))
-
     (values current-subst (nreverse residual))))
 
 ;;; collect-constraints (AST walker that generates equality constraints)
 ;;; is in solver-collect.lisp (loaded next).
+
+(defvar *constraint-resolver-registry* (make-hash-table :test #'eq))
+
+(defun register-constraint-resolver (kind resolver)
+  (setf (gethash kind *constraint-resolver-registry*) resolver))
+
+(defun %resolve-constraint (constraint current-subst)
+  (let* ((kind (constraint-kind constraint))
+         (resolver (gethash kind *constraint-resolver-registry*)))
+    (unless resolver
+      (error "No constraint resolver registered for kind ~S" kind))
+    (funcall resolver constraint current-subst)))
+
+(eval-when (:load-toplevel :execute)
+  (register-constraint-resolver :equal #'%solve-equal-constraint)
+  (register-constraint-resolver :subtype #'%solve-subtype-constraint)
+  (register-constraint-resolver :implication #'%solve-implication-constraint)
+  (register-constraint-resolver :effect-subset #'%solve-effect-subset-constraint)
+  (register-constraint-resolver :mult-leq #'%solve-mult-leq-constraint)
+  (register-constraint-resolver :row-lacks #'%solve-row-lacks-constraint)
+  (register-constraint-resolver :kind-equal #'%solve-kind-equal-constraint))

@@ -1,5 +1,5 @@
 ;;;; types-extended-routing-types.lisp — Route, api-spec structs and validators
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/routing)
 
 (define-simple-condition route-validation-error type-system-error
   (detail)
@@ -177,5 +177,16 @@ Assumes %ROUTE-PATH-PLACEHOLDER-P already holds for SEGMENT."
               (param-count (length (route-template-parameters path)))
               (tail-count (- (length value) 2)))
          (>= tail-count (max 1 param-count)))))
+(defun type-advanced-route-p (value)
+  "Return T when VALUE is a well-formed route payload for FR-3305."
+  (or (and (route-p value) (route-valid-p value))
+      (route-form-valid-p value)))
+(defun %type-advanced-validate-route (advanced)
+  "Validate FR-3305 API route payloads."
+  (%type-advanced-require-min-args advanced 1)
+  (dolist (route (type-advanced-args advanced))
+    (unless (type-advanced-route-p route)
+      (%type-advanced-invalid advanced "malformed route payload ~S" route))))
+(register-type-advanced-validator "FR-3305" (function %type-advanced-validate-route))
 
 

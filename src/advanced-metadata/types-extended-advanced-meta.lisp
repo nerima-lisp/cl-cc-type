@@ -1,5 +1,5 @@
 ;;;; types-extended-advanced-meta.lisp — Feature metadata, specs, registries, surface tables
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/advanced-metadata)
 
 ;;; ─── Advanced feature metadata / representation ───────────────────────────
 

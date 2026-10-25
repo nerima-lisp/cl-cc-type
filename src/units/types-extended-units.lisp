@@ -1,5 +1,5 @@
 ;;;; types-extended-units.lisp — Unit definitions, measures, SI registrations
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/units)
 
 (define-simple-condition unit-mismatch-error type-system-error
   (left right)
@@ -164,4 +164,16 @@
   (define-unit 'gram '((:mass . 1)) 1/1000)
   (define-unit 'kilogram '((:mass . 1)) 1))
 
+(defun %units-validate-unit-designator (advanced)
+  "Validate the unit designator carried by FR-2302."
+  (let ((unit (type-advanced-property advanced :unit)))
+    (unless (unit-designator-p unit)
+      (%type-advanced-invalid advanced
+                              "property ~S failed contract predicate ~S with value ~S"
+                              :unit
+                              'unit-designator-p
+                              unit))))
 
+(eval-when (:load-toplevel :execute)
+  (register-type-advanced-validator
+   "FR-2302" #'%units-validate-unit-designator))

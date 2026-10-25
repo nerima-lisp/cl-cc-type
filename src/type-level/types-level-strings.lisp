@@ -1,6 +1,6 @@
 ;;;; types-level-strings.lisp — FR-1702 type-level strings and template literals
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-level)
 
 (defun make-type-level-string (value)
   "Construct a FR-1702 type-level string/symbol node."

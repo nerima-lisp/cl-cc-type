@@ -1,5 +1,5 @@
 ;;;; types-extended-advanced-validators.lisp — 22 %type-advanced-validate-* functions
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/advanced-metadata)
 
 ;;; VALIDATE-ADVANCED covers the recurring shape "signal %TYPE-ADVANCED-INVALID
 ;;; unless a predicate holds" that appears throughout this file's per-feature
@@ -18,56 +18,6 @@ format-control string followed by its format arguments — unless PREDICATE
 is true."
   `(unless ,predicate
      (%type-advanced-invalid ,advanced ,@report-args)))
-
-(defun %type-advanced-validate-information-flow (advanced)
-  "Validate FR-1503 information-flow labels and declassification evidence."
-  (%type-advanced-require-min-args advanced 1)
-  (let* ((source (%type-advanced-payload-security-label (first (type-advanced-args advanced))))
-         (target (type-advanced-property advanced :flow)))
-    (when (and target (null (%type-advanced-label-rank target)))
-      (%type-advanced-invalid advanced "unknown information-flow target label ~S" target))
-    (when (and source target
-               (not (type-advanced-security-label<= source target))
-               (null (type-advanced-evidence advanced)))
-      (%type-advanced-invalid advanced "flow from ~S to ~S requires declassification evidence"
-                              source target))))
-
-(defun %type-advanced-validate-type-safe-ffi (advanced)
-  "Validate FR-2103 typed FFI descriptors at the boundary shape level."
-  (%type-advanced-require-min-args advanced 1)
-  (dolist (arg (type-advanced-args advanced))
-    (validate-advanced advanced (ffi-descriptor-form-valid-p arg)
-                        "malformed FFI descriptor ~S" arg)))
-
-(defun %type-advanced-validate-route (advanced)
-  "Validate FR-3305 API route payloads."
-  (%type-advanced-require-min-args advanced 1)
-  (dolist (route (type-advanced-args advanced))
-    (validate-advanced advanced (type-advanced-route-p route)
-                        "malformed route payload ~S" route)))
-
-(defun %type-advanced-validate-proof-like (advanced)
-  "Validate proof/totality features that require machine-checkable evidence.
-Evidence presence itself is already enforced generically by
-%TYPE-ADVANCED-VALIDATE-CONTRACT's :REQUIRES-EVIDENCE-P check, which every
-FR dispatching here sets and which runs before this custom validator; only
-the feature-id-specific evidence *shape* checks below belong here."
-  (%type-advanced-require-min-args advanced 1)
-  (let ((evidence (type-advanced-evidence advanced))
-        (feature-id (type-advanced-feature-id advanced)))
-    (when (member feature-id '("FR-1901" "FR-1902" "FR-1903" "FR-1904" "FR-1905" "FR-1906")
-                  :test #'string=)
-      (validate-advanced advanced
-                          (or (termination-evidence-p evidence)
-                              (termination-evidence-form-valid-p evidence)
-                              (proof-evidence-form-valid-p evidence))
-                          "malformed totality evidence ~S" evidence))
-    (when (member feature-id '("FR-2001" "FR-2002" "FR-2003" "FR-2004" "FR-2005" "FR-3406")
-                  :test #'string=)
-      (validate-advanced advanced
-                          (or (proof-evidence-form-valid-p evidence)
-                              (cic-proof-valid-p evidence))
-                          "malformed proof evidence ~S" evidence))))
 
 (defun %type-advanced-validate-incremental-checking (advanced)
   "Validate FR-1606 incremental type-checking cache contracts."
@@ -250,14 +200,19 @@ which no property-predicate could express, belongs here."
                            "~S equality requires supporting evidence"
                            mode)))))
 
-(defun %type-advanced-validate-qtt (advanced)
-  "Validate FR-3401 quantitative multiplicity payloads."
-  (validate-advanced advanced (valid-multiplicity-p (first (type-advanced-args advanced)))
-                      "unsupported QTT multiplicity ~S"
-                      (first (type-advanced-args advanced))))
-
-(defun %type-advanced-validate-graded (advanced)
-  "Validate FR-3402 graded-type multiplicity payloads."
-  (validate-advanced advanced (%type-advanced-multiplicity-p (first (type-advanced-args advanced)))
-                      "unsupported multiplicity/grade ~S"
-                      (first (type-advanced-args advanced))))
+(progn
+  (register-type-advanced-validator "FR-1606" #'%type-advanced-validate-incremental-checking)
+  (register-type-advanced-validator "FR-1703" #'%type-advanced-validate-staging)
+  (register-type-advanced-validator "FR-1801" #'%type-advanced-validate-optics)
+  (register-type-advanced-validator "FR-2101" #'%type-advanced-validate-test-generation)
+  (register-type-advanced-validator "FR-2406" #'%type-advanced-validate-smt-integration)
+  (register-type-advanced-validator "FR-2804" #'%type-advanced-validate-abstract-interpretation)
+  (register-type-advanced-validator "FR-2902" #'%type-advanced-validate-alias-analysis)
+  (register-type-advanced-validator "FR-3002" #'%type-advanced-validate-plugins)
+  (register-type-advanced-validator "FR-3003" #'%type-advanced-validate-synthesis)
+  (register-type-advanced-validator "FR-3205" #'%type-advanced-validate-brand)
+  (register-type-advanced-validator "FR-3301" #'%type-advanced-validate-mapped-types)
+  (register-type-advanced-validator "FR-3302" #'%type-advanced-validate-conditional-types)
+  (register-type-advanced-validator "FR-3403" #'%type-advanced-validate-encodings)
+  (register-type-advanced-validator "FR-3404" #'%type-advanced-validate-extensible-effects)
+  (register-type-advanced-validator "FR-3405" #'%type-advanced-validate-type-theory-equality))

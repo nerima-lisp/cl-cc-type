@@ -4,7 +4,7 @@
 ;;; infer-effects, infer-with-effects, check-body-effects,
 ;;; effect signature registry, and built-in effect initialisation.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 
 ;;; Pure-AST type table (data-driven)
 

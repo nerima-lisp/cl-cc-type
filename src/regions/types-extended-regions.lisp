@@ -1,6 +1,6 @@
 ;;;; types-extended-regions.lisp — Region lifetime tokens, region-scoped references, with-region
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/regions)
 
 (define-simple-condition region-lifetime-error type-system-error
   (reference)

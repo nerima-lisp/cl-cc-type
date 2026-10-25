@@ -6,7 +6,7 @@
 ;;;; type-forall, type-exists, type-app, type-lambda, type-mu,
 ;;;; type-refinement, type-linear, type-capability.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-model)
 
 ;;; ─── Base ─────────────────────────────────────────────────────────────────
 

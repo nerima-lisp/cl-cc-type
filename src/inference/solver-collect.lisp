@@ -18,7 +18,7 @@
 ;;; they close over the constraint accumulator local to one collect-constraints
 ;;; call, not looked up as free references.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 
 ;;; ─── per-node-kind constraint generators ──────────────────────────────────
 
@@ -27,10 +27,7 @@
       (type-env-lookup (cl-cc/ast:ast-var-name node) env)
     (if found-p
         (instantiate scheme)
-        (error 'unbound-variable-error
-               :message (format nil "Unbound variable: ~A"
-                                (cl-cc/ast:ast-var-name node))
-               :variable-name (cl-cc/ast:ast-var-name node)))))
+        (error 'unbound-variable-error :name (cl-cc/ast:ast-var-name node)))))
 
 (defun %collect-quote (node)
   (let ((val (cl-cc/ast:ast-quote-value node)))

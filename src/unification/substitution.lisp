@@ -13,7 +13,7 @@
 ;;;;   (zonk type subst)              — eagerly apply subst to type
 ;;;;   (zonk-env env subst)           — zonk all bindings in env
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/unification)
 
 ;;; ─── Substitution struct ──────────────────────────────────────────────────
 

@@ -1,4 +1,4 @@
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 ;;; ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ;;; Type Inference — Predicate Registry + Complex Form Handlers
 ;;;

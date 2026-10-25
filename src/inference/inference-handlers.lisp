@@ -9,7 +9,7 @@
 ;;;
 ;;; Load order: after inference.lisp, before inference-forms.lisp.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 
 ;;; ── infer-* handlers (one per AST node type) ────────────────────────────
 ;;; Each function handles exactly one AST case; `infer` is a pure dispatcher.

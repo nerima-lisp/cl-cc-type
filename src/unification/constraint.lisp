@@ -23,7 +23,7 @@
 ;;;;   constraint-free-vars           — free type-vars in a constraint
 ;;;;   constraint-substitute          — apply substitution to a constraint
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/unification)
 
 ;;; ─── Constraint struct ────────────────────────────────────────────────────
 

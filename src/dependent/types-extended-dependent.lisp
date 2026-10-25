@@ -1,5 +1,5 @@
 ;;;; types-extended-dependent.lisp — CIC, universe sorts, proof evidence
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/dependent)
 
 (defstruct (universe-sort (:constructor %make-universe-sort))
   "A universe scaffold for Prop/Set/Type."
@@ -241,4 +241,24 @@ This scaffold forbids large elimination from Prop into computational universes."
                           :test #'string=))))
        (consp (rest value))))
 
+(defun %dependent-validate-proof-like (advanced)
+  "Validate proof and totality evidence for its advanced feature id."
+  (%type-advanced-require-min-args advanced 1)
+  (let ((evidence (type-advanced-evidence advanced))
+        (feature-id (type-advanced-feature-id advanced)))
+    (when (member feature-id '("FR-1901" "FR-1902" "FR-1903" "FR-1904" "FR-1905" "FR-1906")
+                  :test #'string=)
+      (unless (or (termination-evidence-p evidence)
+                  (termination-evidence-form-valid-p evidence)
+                  (proof-evidence-form-valid-p evidence))
+        (%type-advanced-invalid advanced "malformed totality evidence ~S" evidence)))
+    (when (member feature-id '("FR-2001" "FR-2002" "FR-2003" "FR-2004" "FR-2005" "FR-3406")
+                  :test #'string=)
+      (unless (or (proof-evidence-form-valid-p evidence)
+                  (cic-proof-valid-p evidence))
+        (%type-advanced-invalid advanced "malformed proof evidence ~S" evidence)))))
 
+(eval-when (:load-toplevel :execute)
+  (dolist (id '("FR-1901" "FR-1902" "FR-1903" "FR-1904" "FR-1905" "FR-1906"
+                "FR-2001" "FR-2002" "FR-2003" "FR-2004" "FR-2005" "FR-3406"))
+    (register-type-advanced-validator id #'%dependent-validate-proof-like)))

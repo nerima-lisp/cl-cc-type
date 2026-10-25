@@ -1,6 +1,6 @@
 ;;;; types-extended-registries.lisp
 ;;;; Type-interface-module, SMT solvers, type checkers, synthesis strategies
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/registries)
 
 (defstruct (type-interface-module (:constructor %make-type-interface-module))
   "A loaded FR-2405 interface summary."
@@ -20,36 +20,21 @@
 (defun %type-interface-key (name)
   (if (symbolp name) (string-upcase (symbol-name name)) name))
 
-(defun %type-interface-export-name (export)
-  (if (and (consp export) (symbolp (first export)))
-      (first export)
-      export))
-
-(defun %type-interface-export-type (export)
-  (if (and (consp export) (second export))
-      (parse-type-specifier (second export))
-      type-any))
-
-(defun register-type-interface (module exports fingerprint)
-  "Register MODULE's exported type interface and return its summary."
-  (let* ((exported-types (mapcar (lambda (export)
-                                   (cons (%type-interface-export-name export)
-                                         (%type-interface-export-type export)))
-                                 exports))
-         (summary (%make-type-interface-module
-                   :name module
-                   :exports (mapcar #'%type-interface-export-name exports)
-                   :fingerprint fingerprint
-                   :exported-types exported-types)))
+(defun lookup-type-interface (module)
+  "Return the loaded interface summary for MODULE, if present."
+  (gethash (%type-interface-key module) *type-interface-registry*))
+(defun register-type-interface-data (module exports fingerprint exported-types)
+  "Register parsed MODULE interface data and return its summary."
+  (let ((summary (%make-type-interface-module
+                  :name module
+                  :exports exports
+                  :fingerprint fingerprint
+                  :exported-types exported-types)))
     (setf (gethash (%type-interface-key module) *type-interface-registry*) summary)
     (dolist (entry exported-types)
       (setf (gethash (%type-interface-key (car entry)) *type-interface-export-registry*)
             (type-to-scheme (cdr entry))))
     summary))
-
-(defun lookup-type-interface (module)
-  "Return the loaded interface summary for MODULE, if present."
-  (gethash (%type-interface-key module) *type-interface-registry*))
 
 (defun lookup-type-interface-export (name)
   "Return (values scheme found-p) for an imported interface export NAME."

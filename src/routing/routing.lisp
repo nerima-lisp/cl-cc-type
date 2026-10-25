@@ -1,6 +1,6 @@
 ;;;; routing.lisp — FR-3305 type-safe routing helpers
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/routing)
 
 (defun make-api-type (method path parameter-specs response-type &key request-type)
   "Construct a FR-3305 API type from a typed route descriptor."

@@ -8,7 +8,28 @@
 ;;;; Depends on parser.lisp being loaded first (parse-type-specifier,
 ;;;; parse-compound-type, type-parse-error, type-creation functions).
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-lowering)
+
+(defun %coerce-structural-field-spec (spec)
+  "Normalize one has-slots or protocol requirement into a label and type node."
+  (cond
+    ((symbolp spec)
+     (cons spec type-any))
+    ((and (consp spec) (= (length spec) 2) (symbolp (first spec)))
+     (cons (first spec)
+           (if (typep (second spec) 'type-node)
+               (second spec)
+               (parse-type-specifier (second spec)))))
+    (t
+     (error "Invalid structural field spec: ~S" spec))))
+
+(defun %coerce-structural-field-specs (specs)
+  (mapcar #'%coerce-structural-field-spec specs))
+
+(defun register-protocol-type (name field-specs)
+  "Register protocol NAME from field specs, parsing non-node type specifiers."
+  (setf (gethash name *protocol-type-registry*)
+        (%coerce-structural-field-specs field-specs)))
 
 ;;; ─── Arrow form multiplicities ────────────────────────────────────────────
 
@@ -142,9 +163,8 @@ Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
            (assoc (symbol-name value)
                   *primitive-type-name-table*
                   :test (lambda (name names) (member name names :test #'string=)))
-           ;; *TYPE-ALIAS-REGISTRY* is bound by an early DEFVAR in
-           ;; package.lisp (before inference.lisp, which owns its REGISTER-/
-           ;; LOOKUP- API, ever loads), so no BOUNDP guard is needed here.
+           ;; The registries feature initializes this table before type-lowering
+           ;; is loaded, so no BOUNDP guard is needed here.
            (gethash value *type-alias-registry*))))
 
 (defun %advanced-type-form-head-p (head)
@@ -351,6 +371,41 @@ HN is HEAD's symbol-name, already confirmed by the caller to start with #\!."
       (%parse-effect-names-and-row-var (first specs))
       ;; Flat list: (IO State | ε)
       (%parse-effect-names-and-row-var specs)))
+
+(defun %normalize-type-specifier (typespec)
+  (typecase typespec
+    (type-node typespec)
+    (symbol (parse-type-specifier typespec))
+    (t type-any)))
+
+(defun subtypep (type1 type2)
+  "Subtype predicate for cl-cc/type.
+
+Returns (values subtype-p sure-p). TYPE1 and TYPE2 may be type nodes or
+ type specifiers."
+  (let ((t1 (if (typep type1 'type-node) type1 (parse-type-specifier type1)))
+        (t2 (if (typep type2 'type-node) type2 (parse-type-specifier type2))))
+    (values (is-subtype-p t1 t2) t)))
+
+(defun upgraded-array-element-type (typespec &optional environment)
+  "Return the upgraded array element type for TYPESPEC.
+This repository treats arrays as untyped at the core type layer, so the
+upgraded element type is the top type."
+  (declare (ignore environment))
+  (let ((ty (%normalize-type-specifier typespec))
+        (t-bit (parse-type-specifier 'bit))
+        (t-char (parse-type-specifier 'character)))
+    (cond
+      ((or (type-equal-p ty t-bit) (is-subtype-p ty t-bit)) t-bit)
+      ((or (type-equal-p ty t-char) (is-subtype-p ty t-char)) t-char)
+      (t (parse-type-specifier 't)))))
+
+(defun upgraded-complex-part-type (typespec &optional environment)
+  "Return the upgraded complex part type for TYPESPEC.
+Complex numbers are represented with real parts in the core type layer."
+  (declare (ignore environment))
+  (declare (ignore typespec))
+  (parse-type-specifier 'real))
 
 
 ;;; (parse-row-type, parse-constraint-spec, lambda-list parsing,

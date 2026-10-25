@@ -1,6 +1,6 @@
 ;;;; types-extended-advanced-meta-validators.lisp
 ;;;; Implementation evidence, validation helpers, predicate functions
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/advanced-metadata)
 
 (defstruct (type-advanced-implementation-evidence
              (:constructor %make-type-advanced-implementation-evidence))

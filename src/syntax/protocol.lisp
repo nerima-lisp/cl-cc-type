@@ -6,10 +6,13 @@
   (:documentation "Parse a type specifier into a type representation."))
 
 (defgeneric type-to-string (type)
-  (:documentation "Render a type representation as a string."))
+  (:documentation "Render a type representation as a string.")
+  (:method (type)
+    (format nil "#<type ~A>" (type-of type))))
 
 (defgeneric unparse-type (type)
-  (:documentation "Convert a type representation to a type specifier."))
+  (:documentation "Convert a type representation to a type specifier.")
+  (:method (type) type))
 
 (defgeneric looks-like-type-specifier-p (form)
   (:documentation "Return true when FORM has the shape of a type specifier."))

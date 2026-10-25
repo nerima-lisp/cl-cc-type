@@ -1,6 +1,6 @@
 ;;;; generics.lisp — FR-1602 datatype-generic programming
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/generics)
 
 (defstruct generic-u1
   "Unit representation for datatype-generic programming.")

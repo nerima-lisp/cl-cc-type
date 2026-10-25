@@ -15,7 +15,7 @@
 ;;;; Function subtyping is contravariant in params, covariant in return:
 ;;;;   (A -> B) <: (C -> D)  iff  C <: A  and  B <: D
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/subtyping)
 
 ;;; CL Type Hierarchy Table
 
@@ -76,27 +76,9 @@ Used for both record (width: t2 fields ⊆ t1) and arrow subtype checks."
   "Maps protocol names to required structural fields.
 Each entry is an alist of (slot-or-method-name . type-node).")
 
-(defun %coerce-structural-field-spec (spec)
-  "Normalize a has-slots/protocol requirement SPEC into (label . type-node)."
-  (cond
-    ((symbolp spec)
-     (cons spec type-any))
-    ((and (consp spec) (= (length spec) 2) (symbolp (first spec)))
-     (cons (first spec)
-           (if (typep (second spec) 'type-node)
-               (second spec)
-               (parse-type-specifier (second spec)))))
-    (t
-     (error "Invalid structural field spec: ~S" spec))))
-
-(defun %coerce-structural-field-specs (specs)
-  (mapcar #'%coerce-structural-field-spec specs))
-
-(defun register-protocol-type (name field-specs)
-  "Register protocol NAME with required structural FIELD-SPECS.
-FIELD-SPECS accepts symbols (slot/method name with type T) or (name type) pairs."
-  (setf (gethash name *protocol-type-registry*)
-        (%coerce-structural-field-specs field-specs)))
+(defun register-protocol-type (name field-node-pairs)
+  "Register protocol NAME with normalized (field-name . type-node) pairs."
+  (setf (gethash name *protocol-type-registry*) field-node-pairs))
 
 (defun lookup-protocol-type (name)
   "Return the structural field requirements for protocol NAME, or NIL."
@@ -118,7 +100,8 @@ FIELD-SPECS accepts symbols (slot/method name with type T) or (name type) pairs.
 
 (defun %protocol-type-p (ty)
   (and (type-constructor-p ty)
-       (eq (type-constructor-name ty) 'protocol)
+       (symbolp (type-constructor-name ty))
+       (string= (symbol-name (type-constructor-name ty)) "PROTOCOL")
        (= (length (type-constructor-args ty)) 1)
        (type-primitive-p (first (type-constructor-args ty)))))
 
@@ -249,15 +232,6 @@ Called as the fallback when no T1-driven rule matched."
               (%is-subtype-p-by-t2 t1 t2)))
          (t (%is-subtype-p-by-t2 t1 t2)))))
 
-(defun subtypep (type1 type2)
-  "Subtype predicate for cl-cc/type.
-
-Returns (values subtype-p sure-p). TYPE1 and TYPE2 may be type nodes or
-type specifiers."
-  (let ((t1 (if (typep type1 'type-node) type1 (parse-type-specifier type1)))
-        (t2 (if (typep type2 'type-node) type2 (parse-type-specifier type2))))
-    (values (is-subtype-p t1 t2) t)))
-
 ;;; Type Lattice Operations
 
 (defun find-common-supertype (name1 name2)
@@ -323,28 +297,40 @@ type specifiers."
           (type-refinement (type-meet t1 (type-refinement-base t2)))
           (t (make-type-intersection (list t1 t2)))))))))
 
-(defun %normalize-type-specifier (typespec)
-  (typecase typespec
-    (type-node typespec)
-    (symbol (parse-type-specifier typespec))
-    (t type-any)))
+(in-package :cl-cc/type/subtyping)
 
-(defun upgraded-array-element-type (typespec &optional environment)
-  "Return the upgraded array element type for TYPESPEC.
-This repository treats arrays as untyped at the core type layer, so the
-upgraded element type is the top type."
-  (declare (ignore environment))
-  (let ((ty   (%normalize-type-specifier typespec))
-        (t-bit  (parse-type-specifier 'bit))
-        (t-char (parse-type-specifier 'character)))
-    (cond
-      ((or (type-equal-p ty t-bit)  (is-subtype-p ty t-bit))  t-bit)
-      ((or (type-equal-p ty t-char) (is-subtype-p ty t-char)) t-char)
-      (t (parse-type-specifier 't)))))
+(define-registry class-type
+  :test #'eq
+  :documentation "Maps class names to class type descriptors.
+   Each entry is an alist of (slot-name . type-node) pairs.")
 
-(defun upgraded-complex-part-type (typespec &optional environment)
-  "Return the upgraded complex part type for TYPESPEC.
-Complex numbers are represented with real parts in the core type layer."
-  (declare (ignore environment))
-  (declare (ignore typespec))
-  (parse-type-specifier 'real))
+;;; Type Inference State
+
+(defun lookup-slot-type (class-name slot-name)
+  "Look up the type of SLOT-NAME in CLASS-NAME. Returns type-node or nil."
+  (let ((slots (lookup-class-type class-name)))
+    (when slots
+      (cdr (assoc slot-name slots :test #'eq)))))
+
+(defvar *class-method-type-registry* (make-hash-table :test #'eq)
+  "Maps class names to protocol-visible method signatures.
+Each entry is an alist of (method-name . type-node) pairs.")
+
+(defun register-class-method-type (class-name method-name &optional (method-type type-any))
+  "Register METHOD-NAME as structurally available on CLASS-NAME."
+  (let* ((methods (gethash class-name *class-method-type-registry*))
+         (entry (assoc method-name methods :test #'eq)))
+    (if entry
+        (setf (cdr entry) method-type)
+        (push (cons method-name method-type) methods))
+    (setf (gethash class-name *class-method-type-registry*) methods)))
+
+(defun lookup-class-method-types (class-name)
+  "Return protocol-visible method types for CLASS-NAME."
+  (gethash class-name *class-method-type-registry*))
+
+(defun lookup-class-method-type (class-name method-name)
+  "Look up METHOD-NAME in CLASS-NAME as a structural protocol member."
+  (let ((methods (lookup-class-method-types class-name)))
+    (when methods
+      (cdr (assoc method-name methods :test #'eq)))))

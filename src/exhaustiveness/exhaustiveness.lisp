@@ -13,7 +13,7 @@
 ;;;; Maranget (2007). "Warnings for Pattern Matching" — the canonical reference
 ;;;; for efficient exhaustiveness/usefulness checking.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/exhaustiveness)
 
 ;;; ─── Subsumption predicate ────────────────────────────────────────────────
 

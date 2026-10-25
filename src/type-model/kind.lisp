@@ -12,7 +12,7 @@
 ;;;;   kind-multiplicity; Multiplicity — {0,1,ω} grades
 ;;;;   kind-var         ; κ variable — for kind inference
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-model)
 
 ;;; ─── Base ─────────────────────────────────────────────────────────────────
 

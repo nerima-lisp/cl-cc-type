@@ -1,6 +1,20 @@
 ;;;; simd.lisp — FR-2206 data-parallel and SIMD types
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/simd)
+
+(defun %runtime-type-designator (type)
+  (cond
+    ((type-primitive-p type) (type-primitive-name type))
+    ((type-advanced-p type) (type-advanced-name type))
+    ((type-constructor-p type) (type-constructor-name type))
+    ((symbolp type) type)
+    (t t)))
+
+(defun %typed-channel-value-matches-p (value type)
+  (let ((designator (%runtime-type-designator type)))
+    (or (eq designator t)
+        (eq designator (quote any))
+        (ignore-errors (typep value designator)))))
 
 (defstruct (simd-vector (:constructor %make-simd-vector))
   "A fixed-lane SIMD vector with homogeneous ELEMENT-TYPE."

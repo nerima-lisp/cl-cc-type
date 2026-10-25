@@ -1,6 +1,6 @@
 ;;;; types-level-naturals.lisp — FR-1701 type-level natural numbers
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-level)
 
 (defun make-type-level-natural (value)
   "Construct a FR-1701 type-level natural number node."

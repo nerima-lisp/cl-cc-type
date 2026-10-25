@@ -14,7 +14,7 @@
 ;;;;
 ;;;; Load order: after representation.lisp.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-classes)
 
 ;;; ─── typeclass-def defstruct ──────────────────────────────────────────────
 
@@ -256,3 +256,38 @@ declares functional dependencies) a functional-dependency violation."
                               :methods nil)))
   (unless (lookup-typeclass-instance 'num type-int)
     (register-typeclass-instance 'num type-int nil)))
+
+(in-package :cl-cc/type/type-classes)
+
+(defun %solve-typeclass-constraint (c current-subst)
+  "Solve a (:typeclass C tau) instance-check constraint."
+  (let* ((args       (constraint-args c))
+         (class-name (first args))
+         (tau        (zonk (second args) current-subst)))
+    (cond
+      ;; Free variable: defer (becomes residual until zonked)
+      ((type-var-p tau)
+       (if (and (default-numeric-typeclass-p class-name)
+                *default-numeric-type*)
+           (multiple-value-bind (new-subst ok)
+               (type-unify tau *default-numeric-type* current-subst)
+             (if ok
+                 (values new-subst nil)
+                 (values current-subst c)))
+           (values current-subst c)))
+      ;; Unknown participates in gradual typing, so do not retain a
+      ;; residual typeclass obligation for it. Other type errors stay
+      ;; residual so callers can surface the failure explicitly.
+      ((type-unknown-p tau)
+       (values current-subst nil))
+      ((type-error-p tau)
+       (values current-subst c))
+      ;; Check instance
+      ((has-typeclass-instance-p class-name tau)
+       (values current-subst nil))
+      ;; No instance found: residual (caller may report error)
+      (t
+       (values current-subst c)))))
+
+(eval-when (:load-toplevel :execute)
+  (register-constraint-resolver :typeclass #'%solve-typeclass-constraint))

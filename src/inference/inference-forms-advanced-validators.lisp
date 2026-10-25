@@ -1,7 +1,7 @@
 ;;;; inference-forms-advanced-validators.lisp — Per-feature advanced call validators
 ;;;; Extracted from inference-forms-advanced.lisp.
 ;;;; Load order: after inference-forms-advanced.
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/inference)
 
 (defun %validate-advanced-spawn-call (ast arg-types _env)
   "Enforce Send for values crossing a spawn boundary."

@@ -6,7 +6,7 @@
 ;;;;
 ;;;; Load order: after representation.lisp, typeclass.lisp.
 
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-model)
 
 ;;; ─── Primary protocol ─────────────────────────────────────────────────────
 ;;;
@@ -60,12 +60,6 @@
                 sep-open field-strs (type-to-string row-var) sep-close)
         (format nil "~A~{~A: ~A~^, ~}~A" sep-open field-strs sep-close))))
 
-(defmethod type-to-string ((ty type-record))
-  (%format-row-fields (type-record-fields ty) "{" "}" (type-record-row-var ty)))
-
-(defmethod type-to-string ((ty type-variant))
-  (%format-row-fields (type-variant-cases ty) "<" ">" (type-variant-row-var ty)))
-
 ;;; ─── Set-like composite types ─────────────────────────────────────────────
 
 (defmethod type-to-string ((ty type-union))
@@ -78,14 +72,6 @@
 
 (defun %format-binder (fmt var body)
   (format nil fmt (type-to-string var) (type-to-string body)))
-
-(defun %advanced-display-value (value)
-  "Render nested advanced payload values using type printers where applicable."
-  (cond
-    ((typep value 'type-node) (type-to-string value))
-    ((consp value)
-     (format nil "(~{~A~^ ~})" (mapcar #'%advanced-display-value value)))
-    (t (prin1-to-string value))))
 
 (defmethod type-to-string ((ty type-forall))
   (%format-binder "(∀~A. ~A)"
@@ -107,28 +93,6 @@
                   (type-mu-var ty)
                   (type-mu-body ty)))
 
-(defmethod type-to-string ((ty type-advanced))
-  (let* ((surface-head (type-advanced-name ty))
-         (head (if (and (symbolp surface-head)
-                        (not (string= (symbol-name surface-head) "ADVANCED")))
-                   surface-head
-                    'advanced))
-         (feature-id (type-advanced-feature-id ty)))
-    (with-output-to-string (out)
-      (format out "(~A" (symbol-name head))
-      (when (eq head 'advanced)
-        (format out " ~A" feature-id))
-      (dolist (arg (type-advanced-args ty))
-        (format out " ~A" (%advanced-display-value arg)))
-      (dolist (entry (type-advanced-properties ty))
-        (format out " ~A ~A"
-                (symbol-name (car entry))
-                (%advanced-display-value (cdr entry))))
-      (when (type-advanced-evidence ty)
-        (format out " :EVIDENCE ~A"
-                (%advanced-display-value (type-advanced-evidence ty))))
-      (write-char #\) out))))
-
 (defmethod type-to-string ((ty type-app))
   (format nil "(~A ~A)"
           (type-to-string (type-app-fun ty))
@@ -139,40 +103,10 @@
 (defmethod type-to-string ((ty type-refinement))
   (format nil "{~A | <pred>}" (type-to-string (type-refinement-base ty))))
 
-(defmethod type-to-string ((ty type-linear))
-  (format nil "!~A ~A"
-          (mult-to-string (type-linear-grade ty))
-          (type-to-string (type-linear-base ty))))
-
 (defmethod type-to-string ((ty type-capability))
   (format nil "~A^{~A}"
           (type-to-string (type-capability-base ty))
           (type-capability-cap ty)))
-
-;;; ─── Effect system types ──────────────────────────────────────────────────
-
-(defmethod type-to-string ((ty type-effect-row))
-  (let ((effs (type-effect-row-effects ty))
-        (rv   (type-effect-row-row-var ty)))
-    (cond
-      ((and (null effs) (null rv)) "{}")
-      ((null rv)   (format nil "{~{~A~^, ~}}"     (mapcar #'type-to-string effs)))
-      ((null effs) (format nil "{| ~A}"             (type-to-string rv)))
-      (t           (format nil "{~{~A~^, ~} | ~A}" (mapcar #'type-to-string effs)
-                                                     (type-to-string rv))))))
-
-(defmethod type-to-string ((ty type-effect-op))
-  (if (type-effect-op-args ty)
-      (format nil "(~A~{ ~A~})"
-              (type-effect-op-name ty)
-              (mapcar #'type-to-string (type-effect-op-args ty)))
-      (symbol-name (type-effect-op-name ty))))
-
-(defmethod type-to-string ((ty type-handler))
-  (format nil "[~A => ~A / ~A]"
-          (type-to-string (type-handler-effect ty))
-          (type-to-string (type-handler-input ty))
-          (type-to-string (type-handler-output ty))))
 
 (defmethod type-to-string ((ty type-gadt-con))
   (format nil "~A :: ~{~A ~}-> ~A"

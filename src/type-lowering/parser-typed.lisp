@@ -15,7 +15,7 @@
 ;;; are in parser.lisp (loads before).
 ;;;
 ;;; Load order: after type/parser.lisp.
-(in-package :cl-cc/type)
+(in-package :cl-cc/type/type-lowering)
 
 ;;; ─── Row type parsing ─────────────────────────────────────────────────────
 
@@ -140,3 +140,27 @@ the bare-symbol spelling takes priority if both are somehow present."
   (when (looks-like-type-specifier-p x)
     (handler-case (parse-type-specifier x)
       (type-parse-error () nil))))
+
+(in-package :cl-cc/type/type-lowering)
+
+(defun register-type-interface (module exports fingerprint)
+  "Parse MODULE's exported type interface and register its data summary."
+  (let ((exported-types
+          (mapcar (lambda (export)
+                    (cons (%type-interface-export-name export)
+                          (%type-interface-export-type export)))
+                  exports)))
+    (register-type-interface-data module
+                                  (mapcar #'car exported-types)
+                                  fingerprint
+                                  exported-types)))
+
+(defun %type-interface-export-type (export)
+  (if (and (consp export) (second export))
+      (parse-type-specifier (second export))
+      type-any))
+
+(defun %type-interface-export-name (export)
+  (if (and (consp export) (symbolp (first export)))
+      (first export)
+      export))

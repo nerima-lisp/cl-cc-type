@@ -1,51 +1,10 @@
-;;;; inference.lisp - HM Inference Registries and Helpers
+;;;; inference.lisp - HM Inference Helpers
 ;;;
-;;; Contains: class type and alias registries, %infer-fn-binding, %find-fn-type-declaration.
+;;; Contains: %infer-fn-binding, %find-fn-type-declaration.
 ;;;
 ;;; Load order: before inference-handlers.lisp.
 
-(in-package :cl-cc/type)
-
-;;; Type Inference State
-
-(define-registry class-type
-  :test #'eq
-  :documentation "Maps class names to class type descriptors.
-   Each entry is an alist of (slot-name . type-node) pairs.")
-
-(defun lookup-slot-type (class-name slot-name)
-  "Look up the type of SLOT-NAME in CLASS-NAME. Returns type-node or nil."
-  (let ((slots (lookup-class-type class-name)))
-    (when slots
-      (cdr (assoc slot-name slots :test #'eq)))))
-
-(defvar *class-method-type-registry* (make-hash-table :test #'eq)
-  "Maps class names to protocol-visible method signatures.
-Each entry is an alist of (method-name . type-node) pairs.")
-
-(defun register-class-method-type (class-name method-name &optional (method-type type-any))
-  "Register METHOD-NAME as structurally available on CLASS-NAME."
-  (let* ((methods (gethash class-name *class-method-type-registry*))
-         (entry (assoc method-name methods :test #'eq)))
-    (if entry
-        (setf (cdr entry) method-type)
-        (push (cons method-name method-type) methods))
-    (setf (gethash class-name *class-method-type-registry*) methods)))
-
-(defun lookup-class-method-types (class-name)
-  "Return protocol-visible method types for CLASS-NAME."
-  (gethash class-name *class-method-type-registry*))
-
-(defun lookup-class-method-type (class-name method-name)
-  "Look up METHOD-NAME in CLASS-NAME as a structural protocol member."
-  (let ((methods (lookup-class-method-types class-name)))
-    (when methods
-      (cdr (assoc method-name methods :test #'eq)))))
-
-(define-registry type-alias
-  :test #'eq
-  :documentation "Maps type alias names to their expanded type specifiers.
-   E.g., integer-or-string → (or fixnum string)")
+(in-package :cl-cc/type/inference)
 
 ;;; NOTE: *type-var-counter*, fresh-type-var, reset-type-vars! are defined
 ;;;       in representation.lisp.
