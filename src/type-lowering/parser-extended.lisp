@@ -1,0 +1,413 @@
+;;;; parser-extended.lisp - Extended Type Parser (Arrows, Quantifiers, Effects, Row Types)
+;;;;
+;;;; Handles symbol-named compound forms that require string comparison
+;;;; for package-independence: arrow multiplicities, binding quantifiers,
+;;;; qualified/refinement/graded-modal types, record/variant row types,
+;;;; and the effect-row parser.
+;;;;
+;;;; Depends on parser.lisp being loaded first (parse-type-specifier,
+;;;; parse-compound-type, type-parse-error, type-creation functions).
+
+(in-package :cl-cc/type/type-lowering)
+
+(defun %coerce-structural-field-spec (spec)
+  "Normalize one has-slots or protocol requirement into a label and type node."
+  (cond
+    ((symbolp spec)
+     (cons spec type-any))
+    ((and (consp spec) (= (length spec) 2) (symbolp (first spec)))
+     (cons (first spec)
+           (if (typep (second spec) 'type-node)
+               (second spec)
+               (parse-type-specifier (second spec)))))
+    (t
+     (error "Invalid structural field spec: ~S" spec))))
+
+(defun %coerce-structural-field-specs (specs)
+  (mapcar #'%coerce-structural-field-spec specs))
+
+(defun register-protocol-type (name field-specs)
+  "Register protocol NAME from field specs, parsing non-node type specifiers."
+  (setf (gethash name *protocol-type-registry*)
+        (%coerce-structural-field-specs field-specs)))
+
+;;; ─── Arrow form multiplicities ────────────────────────────────────────────
+
+(defvar *arrow-mult-table*
+  '(("->"  . :omega)
+    ("->1" . :one)
+    ("->0" . :zero))
+  "Maps arrow syntax name strings to their multiplicity keywords.")
+
+;;; ─── Binding quantifiers: data-driven (forall/∀, exists/∃, mu/μ, type-lambda) ──────────
+;;; All share identical structure (var body) — only the constructor differs.
+
+(defvar *binding-quantifier-table*
+  `((("FORALL"      "∀") . ,#'make-type-forall)
+    (("EXISTS"      "∃") . ,#'make-type-exists)
+    (("MU"          "μ") . ,#'make-type-mu)
+    (("TYPE-LAMBDA")     . ,#'make-type-lambda))
+  "Maps lists of equivalent name strings to (var body) → type-node constructors.")
+
+(defun %normalize-refinement-predicate (predicate)
+  "Normalize symbol predicate syntax to the lambda-form contract used downstream."
+  (if (symbolp predicate)
+      `(lambda (value) (,predicate value))
+      predicate))
+
+(defun %binding-quantifier-ctor (hn)
+  "Return the constructor for quantifier name HN (case-sensitive), or nil."
+  (cdr (assoc hn *binding-quantifier-table*
+              :test (lambda (h names) (member h names :test #'string=)))))
+
+(defun %bound-operator-kind (op)
+  "Map a bounded-polymorphism operator symbol to :UPPER or :LOWER."
+  (when (symbolp op)
+    (let ((name (symbol-name op)))
+      (cond
+        ((member name '("<:" "EXTENDS" "SUBTYPE-OF") :test #'string=) :upper)
+        ((member name '(">:" "SUPERTYPE-OF") :test #'string=) :lower)
+        (t nil)))))
+
+(defun %parse-bounded-quantifier-var (spec)
+  "Parse quantifier variable SPEC, including bounds like (a <: number).
+Supported bound operators are <:/extends/subtype-of and >:/supertype-of."
+  (cond
+    ((symbolp spec)
+     (fresh-type-var :name spec))
+    ((and (consp spec) (symbolp (first spec)))
+     (let ((name (first spec))
+           (upper nil)
+           (lower nil)
+           (bounds (rest spec)))
+       (loop while bounds
+             do (let ((kind (%bound-operator-kind (first bounds))))
+                  (parser-require (and kind (consp (rest bounds)))
+                                   "Invalid bounded type variable: ~S" spec)
+                  (case kind
+                    (:upper (setf upper (parse-type-specifier (second bounds))))
+                    (:lower (setf lower (parse-type-specifier (second bounds)))))
+                  (setf bounds (cddr bounds))))
+       (fresh-type-var :name name :upper-bound upper :lower-bound lower)))
+    (t
+     (type-parse-error "Quantifier variable must be a symbol or bounded spec: ~S" spec))))
+
+(defun %parse-protocol-name-type (spec)
+  "Parse a protocol designator into a primitive name wrapper."
+  (parser-require (symbolp spec) "protocol name must be a symbol, got ~S" spec)
+  (make-type-primitive :name spec))
+
+;;; ─── Row forms: data-driven (Record, Variant share parse-row-type by kind) ────
+
+(defvar *row-type-table*
+  '(("RECORD"  . :record)
+    ("VARIANT" . :variant))
+  "Maps row-form syntax name strings to their parse-row-type kind keywords.")
+
+;;; ─── Simple compound forms: data-driven (option, has-slots, protocol, refine, function) ──
+;;; Unlike arrow/quantifier forms, these don't share one uniform argument shape, so each
+;;; builder performs its own arity check and construction; the table only externalizes the
+;;; name → builder mapping so the dispatch cond gets a single generic lookup clause.
+
+(defun %parse-option-form (head args)
+  "Parse (option T) into (or null T) — package-independent nullable sugar."
+  (parser-require (= (length args) 1) "option requires exactly 1 type")
+  (make-type-union (list type-null (parse-type-specifier (first args)))
+                   :constructor-name head))
+
+(defun %parse-has-slots-form (head args)
+  "Parse (has-slots :x (:y fixnum)) into a structural record type."
+  (declare (ignore head))
+  (parser-require args "has-slots requires at least one slot requirement")
+  (make-type-record :fields (%coerce-structural-field-specs args)
+                    :row-var nil))
+
+(defun %parse-protocol-form (head args)
+  "Parse (protocol drawable) into a protocol reference type."
+  (declare (ignore head))
+  (parser-require (= (length args) 1) "protocol requires exactly one protocol name")
+  (make-type-constructor 'protocol
+                         (list (%parse-protocol-name-type (first args)))))
+
+(defun %parse-refine-form (head args)
+  "Parse (Refine T pred) into a refinement type."
+  (declare (ignore head))
+  (parser-require (= (length args) 2) "Refine requires (Refine base-type predicate)")
+  (make-type-refinement :base (parse-type-specifier (first args))
+                        :predicate (%normalize-refinement-predicate (second args))))
+
+(defun %parse-function-type-form (head args)
+  "Parse ANSI CL (function (PARAM...) RETURN) into the internal arrow type."
+  (declare (ignore head))
+  (parse-cl-function-type args))
+
+(defvar *simple-compound-form-table*
+  `(("OPTION"    . ,#'%parse-option-form)
+    ("HAS-SLOTS" . ,#'%parse-has-slots-form)
+    ("PROTOCOL"  . ,#'%parse-protocol-form)
+    ("REFINE"    . ,#'%parse-refine-form)
+    ("FUNCTION"  . ,#'%parse-function-type-form))
+  "Maps compound-type head name strings to (head args) → type-node builder functions.")
+
+(defun %parser-head-name-member-p (head table)
+  "Return T when HEAD's symbol-name matches a symbol key in TABLE."
+  (and (symbolp head)
+       (assoc (symbol-name head)
+              table
+              :test (lambda (name key) (string= name (symbol-name key))))))
+
+(defun %known-advanced-type-atom-p (value)
+  "Return T when VALUE is an atomic form that should parse as a type node."
+  (and (symbolp value)
+       (or (member (symbol-name value) '("?" "_") :test #'string=)
+           (assoc (symbol-name value)
+                  *primitive-type-name-table*
+                  :test (lambda (name names) (member name names :test #'string=)))
+           ;; The registries feature initializes this table before type-lowering
+           ;; is loaded, so no BOUNDP guard is needed here.
+           (gethash value *type-alias-registry*))))
+
+(defun %advanced-type-form-head-p (head)
+  "Return T when HEAD introduces a parseable type form inside advanced payloads."
+  (let ((hn (and (symbolp head) (symbol-name head))))
+    (or (%parser-head-name-member-p head *parse-compound-multi-arg-table*)
+        (%parser-head-name-member-p head *parse-compound-type-app-table*)
+        (and hn (assoc hn *arrow-mult-table* :test #'string=))
+        (and hn (%binding-quantifier-ctor hn))
+        (and hn (member hn '("VALUES" "OPTION" "REFINE" "RECORD" "VARIANT"
+                             "FUNCTION" "HAS-SLOTS" "PROTOCOL"
+                             "UNSIGNED-BYTE" "SIGNED-BYTE" "INTEGER" "MOD")
+                         :test #'string=))
+        (and (symbolp head)
+             hn
+             (> (length hn) 0)
+             (char= (char hn 0) #\!))
+        (type-advanced-head-p head))))
+
+(defun %parse-advanced-value (value)
+  "Parse VALUE into a type node when it clearly denotes a type; otherwise preserve shape."
+  (cond
+    ((typep value 'type-node) value)
+    ((or (null value) (numberp value) (stringp value) (characterp value) (keywordp value))
+     value)
+    ((%known-advanced-type-atom-p value)
+     (parse-type-specifier value))
+    ((consp value)
+     ;; LISTP is (OR (CONSP x) (NULL x)), so once CONSP is already known
+     ;; true here, a dotted-pair fallback distinguished by LISTP could
+     ;; never fire -- MAPCAR below covers every reachable case, including
+     ;; a value whose CDR is itself an improper list (MAPCAR would signal
+     ;; a type-error, exactly as it would have inside a LISTP clause).
+     (if (%advanced-type-form-head-p (car value))
+         (parse-type-specifier value)
+         (mapcar #'%parse-advanced-value value)))
+    (t value)))
+
+(defun %parse-advanced-items (items)
+  "Split ITEMS into positional args, keyword properties, and optional evidence."
+  (let ((args nil)
+        (properties nil)
+        (evidence nil))
+    (loop while items
+          do (let ((item (first items)))
+               (cond
+                 ((eq item :evidence)
+                  (parser-require (consp (rest items)) "advanced :evidence requires a value")
+                  (setf evidence (%parse-advanced-value (second items))
+                        items (cddr items)))
+                 ((keywordp item)
+                  (parser-require (consp (rest items))
+                                   "advanced property ~S requires a value" item)
+                  (push (cons item (%parse-advanced-value (second items))) properties)
+                  (setf items (cddr items)))
+                 (t
+                  (push (%parse-advanced-value item) args)
+                  (setf items (rest items))))))
+    (values (nreverse args) (nreverse properties) evidence)))
+
+(defun %parse-advanced-feature-form (head args)
+  "Parse either (advanced FR-xxxx ...) or a registered representative advanced head."
+  (let* ((head-name (and (symbolp head) (symbol-name head)))
+         (general-p (and head-name (string= head-name "ADVANCED"))))
+    (cond
+      (general-p
+       (parser-require args "advanced requires a feature id")
+       (let ((feature-id (canonicalize-type-advanced-feature-id (first args))))
+         (parser-require (lookup-type-advanced-feature feature-id)
+                          "Unknown advanced feature id: ~S" (first args))
+         (multiple-value-bind (positional properties evidence)
+             (%parse-advanced-items (rest args))
+           (make-type-advanced :feature-id feature-id
+                               :name head
+                               :args positional
+                               :properties properties
+                               :evidence evidence))))
+      (t
+       (let ((feature-id (type-advanced-feature-id-for-head head)))
+         (parser-require feature-id "Unknown advanced surface head: ~S" head)
+         (multiple-value-bind (positional properties evidence)
+             (%parse-advanced-items args)
+           (make-type-advanced :feature-id feature-id
+                               :name head
+                               :args positional
+                               :properties properties
+                               :evidence evidence)))))))
+
+(defun %parse-graded-modal-type (hn args)
+  "Parse the graded modal '!' compound form: (! q T), (!1 T), (!0 T), (!ω T)/(!Ω T).
+HN is HEAD's symbol-name, already confirmed by the caller to start with #\!."
+  (let* ((suffix (subseq hn 1))
+         (grade (cond ((string= suffix "1") :one)
+                      ((string= suffix "0") :zero)
+                      ((string= suffix "")  ; plain "!" form: (! multiplicity T)
+                       (case (first args)
+                         ((1 :one one)   :one)
+                         ((0 :zero zero) :zero)
+                         (otherwise      :omega)))
+                      (t :omega)))  ; !ω, !Ω, or any other suffix → unrestricted
+         (inner-spec (if (string= suffix "") (second args) (first args))))
+    (make-type-linear :base (parse-type-specifier inner-spec) :grade grade)))
+
+(defun parse-compound-type-extended (head args)
+  "Handle all symbol-named compound forms using string comparison for package-independence."
+  (let ((hn (and (symbolp head) (symbol-name head))))
+    (cond
+       ;; ─── Simple compound forms (option, has-slots, protocol, refine, function) ──
+       ((and hn (assoc hn *simple-compound-form-table* :test #'string=))
+        (funcall (cdr (assoc hn *simple-compound-form-table* :test #'string=)) head args))
+
+       ;; ─── Registered advanced feature families ────────────────────────
+       ((and (symbolp head) (type-advanced-head-p head))
+        (%parse-advanced-feature-form head args))
+
+       ;; ─── Arrow forms (-> :omega, ->1 :one, ->0 :zero) ────────────────
+       ((and hn (assoc hn *arrow-mult-table* :test #'string=))
+        (parse-arrow-type args (cdr (assoc hn *arrow-mult-table* :test #'string=))))
+
+      ;; ─── Binding quantifiers (forall/∀, exists/∃, mu/μ, type-lambda) ──
+      ((and hn (%binding-quantifier-ctor hn))
+       (parser-require (= (length args) 2) "~A requires (~A var body)" hn (string-downcase hn))
+        (let* ((ctor (%binding-quantifier-ctor hn))
+               (var  (%parse-bounded-quantifier-var (first args)))
+               (body (parse-type-specifier (second args))))
+          (funcall ctor :var var :body body)))
+
+        ;; ─── Qualified: (=> (C1 a) ... T) ────────────────────────────────
+       ((and hn (string= hn "=>"))
+        (parser-require (>= (length args) 2) "=> requires (=> constraint... body)")
+        (let* ((body-spec    (car (last args)))
+               (cst-specs    (butlast args))
+               (body         (parse-type-specifier body-spec))
+               (constraints  (mapcar #'parse-constraint-spec cst-specs)))
+          (make-type-qualified :constraints constraints :body body)))
+
+      ;; ─── Graded modal: (! q T) or (!1 T) or (!ω T) / (!Ω T) ────────
+      ;; Match any symbol starting with "!" — handles Unicode-uppercased !ω → !Ω
+      ((and hn (> (length hn) 0) (char= (char hn 0) #\!))
+       (%parse-graded-modal-type hn args))
+
+      ;; ─── Row forms: (Record ...)/(Variant ...) share parse-row-type by kind ──
+      ((and hn (assoc hn *row-type-table* :test #'string=))
+       (parse-row-type args (cdr (assoc hn *row-type-table* :test #'string=))))
+
+      ;; ─── Type application fallback: (F A) ────────────────────────────
+      ((symbolp head)
+       (let ((fun (parse-type-specifier head)))
+         (reduce (lambda (acc arg) (make-type-app :fun acc :arg (parse-type-specifier arg)))
+                 args :initial-value fun)))
+
+      (t (type-parse-error "Unrecognised compound type: ~S" (cons head args))))))
+
+;;; ─── Arrow parsing ────────────────────────────────────────────────────────
+
+(defun parse-arrow-type (args mult)
+  "Parse (->/->1/->0 PARAMS... RETURN [! EFFECTS...]) or (-> P... / <...>)."
+  ;; Check for effect annotation via ! (package-independent: compare by symbol-name)
+  (let* ((bang-pos  (position-if (lambda (x) (and (symbolp x)
+                                                    (string= (symbol-name x) "!")))
+                                  args))
+         ;; Check for (/ ...) effect annotation
+         (slash-pos (and (null bang-pos)
+                         (position-if (lambda (x) (and (symbolp x) (string= (symbol-name x) "/")))
+                                      args)))
+         (eff-start (or (and bang-pos (1+ bang-pos))
+                        (and slash-pos (1+ slash-pos))))
+         (main-args (if eff-start (subseq args 0 (1- eff-start)) args))
+         (eff-specs  (when eff-start (subseq args eff-start))))
+    (parser-require (>= (length main-args) 2)
+                     "Arrow type needs at least one param and a return type")
+    (let* ((param-specs (butlast main-args))
+           (return-spec (car (last main-args)))
+           (params      (mapcar #'parse-type-specifier param-specs))
+           (ret         (parse-type-specifier return-spec))
+           (effects     (if eff-specs
+                            (parse-effect-row-spec eff-specs)
+                            +pure-effect-row+)))
+       (make-type-arrow params ret :effects effects :mult mult))))
+
+(defun parse-cl-function-type (args)
+  "Parse ANSI CL (function (PARAM...) RETURN) into the internal arrow type."
+  (parser-require (= (length args) 2) "function type requires parameter list and return type")
+  (let ((param-specs (first args))
+        (return-spec (second args)))
+    (parser-require (listp param-specs) "function parameter spec must be a list: ~S" param-specs)
+    (make-type-arrow (mapcar #'parse-type-specifier param-specs)
+                     (parse-type-specifier return-spec))))
+
+(defun %parse-effect-names-and-row-var (elts)
+  "Split ELTS at '|' into (effects . row-var-or-nil) and build a type-effect-row."
+  (let* ((pipe-pos  (position-if (lambda (x) (and (symbolp x) (string= (symbol-name x) "|")))
+                                  elts))
+         (eff-names (if pipe-pos (subseq elts 0 pipe-pos) elts))
+         (row-var   (when pipe-pos (parse-type-specifier (nth (1+ pipe-pos) elts)))))
+    (make-type-effect-row
+     :effects (mapcar (lambda (n) (make-type-effect-op :name n)) eff-names)
+     :row-var row-var)))
+
+(defun parse-effect-row-spec (specs)
+  "Parse effect labels like (IO) or (IO State | ε) into a type-effect-row."
+  (if (and (= (length specs) 1) (consp (first specs)))
+      ;; Angle-bracket form: (<IO State | ε>)
+      (%parse-effect-names-and-row-var (first specs))
+      ;; Flat list: (IO State | ε)
+      (%parse-effect-names-and-row-var specs)))
+
+(defun %normalize-type-specifier (typespec)
+  (typecase typespec
+    (type-node typespec)
+    (symbol (parse-type-specifier typespec))
+    (t type-any)))
+
+(defun subtypep (type1 type2)
+  "Subtype predicate for cl-cc/type.
+
+Returns (values subtype-p sure-p). TYPE1 and TYPE2 may be type nodes or
+ type specifiers."
+  (let ((t1 (if (typep type1 'type-node) type1 (parse-type-specifier type1)))
+        (t2 (if (typep type2 'type-node) type2 (parse-type-specifier type2))))
+    (values (is-subtype-p t1 t2) t)))
+
+(defun upgraded-array-element-type (typespec &optional environment)
+  "Return the upgraded array element type for TYPESPEC.
+This repository treats arrays as untyped at the core type layer, so the
+upgraded element type is the top type."
+  (declare (ignore environment))
+  (let ((ty (%normalize-type-specifier typespec))
+        (t-bit (parse-type-specifier 'bit))
+        (t-char (parse-type-specifier 'character)))
+    (cond
+      ((or (type-equal-p ty t-bit) (is-subtype-p ty t-bit)) t-bit)
+      ((or (type-equal-p ty t-char) (is-subtype-p ty t-char)) t-char)
+      (t (parse-type-specifier 't)))))
+
+(defun upgraded-complex-part-type (typespec &optional environment)
+  "Return the upgraded complex part type for TYPESPEC.
+Complex numbers are represented with real parts in the core type layer."
+  (declare (ignore environment))
+  (declare (ignore typespec))
+  (parse-type-specifier 'real))
+
+
+;;; (parse-row-type, parse-constraint-spec, lambda-list parsing,
+;;;  typed AST defstructs, and utilities are in parser-typed.lisp
+;;;  which loads after this file.)

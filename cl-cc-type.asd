@@ -29,76 +29,138 @@
   :pathname "src"
   :serial t
   :components
-  ((:file "package")
-   (:file "registry")
-   (:file "kind")
-   (:file "multiplicity")
-   (:file "types-core")
-   (:file "types-extended-concurrency")
-   (:file "types-extended-security-labels")
-   (:file "types-extended-regions")
-   (:file "types-extended-capabilities")
-   (:file "types-extended-units")
-   (:file "types-extended-routing-types")
-   (:file "types-extended-ffi")
-   (:file "types-extended-registries")
-   (:file "types-extended-qtt")
-   (:file "types-extended-dependent")
-   (:file "types-extended-advanced-meta")
-   (:file "types-extended-advanced-node")
-   (:file "types-extended-advanced-contract")
-   (:file "types-extended-advanced-meta-validators")
-   (:file "types-extended-advanced-validators")
-   (:file "types-extended-advanced-data")
-   (:file "types-extended-advanced-evidence-data")
-   (:file "types-extended-advanced-validate")
-   (:file "types-extended-advanced-init")
-   (:file "types-extended-nodes")
-   (:file "types-env")
-   (:file "substitution")
-   (:file "substitution-schemes")
-   (:file "unification")
-   (:file "subtyping")
-   (:file "effect")
-   (:file "row")
-   (:file "constraint")
-   (:file "parser")
-   (:file "parser-extended")
-   (:file "parser-typed")
-   (:file "typeclass")
-   (:file "solver")
-   (:file "solver-collect")
-   (:file "inference")
-   (:file "inference-handlers")
-   (:file "inference-forms")
-   (:file "inference-forms-advanced")
-   (:file "inference-forms-advanced-validators")
-   (:file "inference-forms-advanced-init")
-   (:file "inference-conditions")
-   (:file "inference-effects")
-   (:file "bidirectional")
-   (:file "checker")
-   (:file "printer")
-   (:file "printer-unparse")
-   (:file "exhaustiveness")
-   ;; FR-1602/1701/1702/1803/1804/2202-2206/3303-3305 utility modules.
-   ;; Keep this order: channels before actors/stm/coroutines/simd.
-   (:file "generics")
-   (:file "channels")
-   (:file "actors")
-   (:file "stm")
-   (:file "coroutines")
-   (:file "simd")
-   (:file "routing")
-   ;; utils.lisp (FR-1701/1702/1803/1804/3303/3304) split by type family;
-   ;; types-utility depends on %field-name= from types-level-strings, so it
-   ;; must load after it. No other file in this system depends on load order
-   ;; among these five.
-   (:file "types-level-naturals")
-   (:file "types-level-strings")
-   (:file "types-hlist")
-   (:file "utils")
-   (:file "types-utility"))
+  ((:module "syntax" :serial t
+    :components ((:file "package")
+                 (:file "protocol")))
+   (:module "type-model" :serial t
+    :components ((:file "package")
+                 (:file "condition-macros")
+                 (:file "kind")
+                 (:file "types-core")
+                 (:file "types-extended-advanced-node")
+                 (:file "types-extended-nodes")
+                 (:file "types-env")
+                 (:file "inference-conditions")
+                 (:file "printer")
+                 (:file "printer-unparse")))
+   (:module "registries" :serial t
+    :components ((:file "package")
+                 (:file "registry")
+                 (:file "types-extended-registries")
+                 (:file "initialize")))
+   (:module "advanced-metadata" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-advanced-meta")
+                 (:file "types-extended-advanced-contract")
+                 (:file "types-extended-advanced-meta-validators")
+                 (:file "types-extended-advanced-validators")
+                 (:file "types-extended-advanced-data")
+                 (:file "types-extended-advanced-evidence-data")
+                 (:file "types-extended-advanced-validate")
+                 (:file "types-extended-advanced-init")))
+   (:module "capabilities" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-capabilities")))
+   (:module "concurrency" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-concurrency")))
+   (:module "generics" :serial t
+    :components ((:file "package")
+                 (:file "generics")))
+   (:module "regions" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-regions")))
+   (:module "security-labels" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-security-labels")))
+   (:module "units" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-units")))
+   (:module "quantities" :serial t
+    :components ((:file "package")
+                 (:file "multiplicity")
+                 (:file "types-extended-qtt")))
+   (:module "type-level" :serial t
+    :components ((:file "package")
+                 (:file "types-level-naturals")
+                 (:file "types-level-strings")))
+   (:module "hlist" :serial t
+    :components ((:file "package")
+                 (:file "types-hlist")))
+   (:module "rows" :serial t
+    :components ((:file "package")
+                 (:file "row")))
+   (:module "effects" :serial t
+    :components ((:file "package")
+                 (:file "effect")))
+   (:module "routing" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-routing-types")
+                 (:file "routing")))
+   (:module "dependent" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-dependent")))
+   (:module "ffi" :serial t
+    :components ((:file "package")
+                 (:file "types-extended-ffi")))
+   (:module "channels" :serial t
+    :components ((:file "package")
+                 (:file "channels")))
+   (:module "actors" :serial t
+    :components ((:file "package")
+                 (:file "actors")))
+   (:module "coroutines" :serial t
+    :components ((:file "package")
+                 (:file "coroutines")))
+   (:module "stm" :serial t
+    :components ((:file "package")
+                 (:file "stm")))
+   (:module "simd" :serial t
+    :components ((:file "package")
+                 (:file "simd")))
+   (:module "subtyping" :serial t
+    :components ((:file "package")
+                 (:file "subtyping")))
+   (:module "utility-types" :serial t
+    :components ((:file "package")
+                 (:file "types-utility")))
+   (:module "type-lowering" :serial t
+    :components ((:file "package")
+                 (:file "parser-guards")
+                 (:file "parser")
+                 (:file "parser-extended")
+                 (:file "parser-typed")))
+   (:module "unification" :serial t
+    :components ((:file "package")
+                 (:file "substitution")
+                 (:file "substitution-schemes")
+                 (:file "unification")
+                 (:file "constraint")
+                 (:file "solver")))
+   (:module "type-classes" :serial t
+    :components ((:file "package")
+                 (:file "typeclass")))
+   (:module "inference" :serial t
+    :components ((:file "package")
+                 (:file "solver-collect")
+                 (:file "inference")
+                 (:file "inference-handlers")
+                 (:file "inference-forms")
+                 (:file "inference-forms-advanced")
+                 (:file "inference-forms-advanced-validators")
+                 (:file "inference-forms-advanced-init")
+                 (:file "inference-effects")
+                 (:file "inference-formatting")))
+   (:module "checking" :serial t
+    :components ((:file "package")
+                 (:file "bidirectional")
+                 (:file "checker")))
+   (:module "exhaustiveness" :serial t
+    :components ((:file "package")
+                 (:file "exhaustiveness")))
+   ;; Validator registrations are provided by domain features above.
+   (:file "advanced-metadata/initialize")
+   (:file "package"))
   :in-order-to ((test-op (test-op "cl-cc-type/test"))))
 
 ;;; The test system is "cl-cc-type/test" with :pathname "t". It is NOT
@@ -126,84 +188,258 @@
   :pathname "t"
   :serial t
   :components
-  ((:file "package")
-   (:file "type-system-test")
-   (:file "type-system-inference-test")
-   (:file "type-system-effect-test")
-   ;; inference-tests, inference-forms-tests, inference-effect-tests,
-   ;; type-inference-tests and type-phase-tests build their input ASTs with
-   ;; cl-cc/parse:lower-sexp-to-ast. They used to be absent (cl-cc-parse had
-   ;; no standalone repository yet); restored now that it does. See
-   ;; docs/src/project/development.md.
-   (:file "inference-tests")
-   (:file "inference-forms-tests")
-   (:file "inference-effect-tests")
-   (:file "type-inference-tests")
-   (:file "type-phase-tests")
-   (:file "types-core-nodes-test")
-   ;; type-2026-advanced-registry-tests is likewise absent: it is a monorepo
-   ;; governance meta-test that cross-checks docs/type-advanced.md against the
-   ;; homegrown framework's cl-cc/test::*known-test-names* registry. Neither
-   ;; exists outside the monorepo, and it asserts nothing about type-system
-   ;; behaviour, so it did not follow the code here.
-   ;;
-   ;; The following files used to be mechanically concatenated into a single
-   ;; types-extended-advanced-semantics-test.lisp (a Nix flake source-extraction
-   ;; artifact); they are split here one-per-source-file, each named after the
-   ;; src/ file it exercises.
-   (:file "types-extended-concurrency-test")
-   (:file "types-extended-security-labels-test")
-   (:file "types-extended-regions-test")
-   (:file "types-extended-capabilities-test")
-   (:file "types-extended-units-test")
-   (:file "types-extended-routing-types-test")
-   (:file "types-extended-ffi-test")
-   (:file "types-extended-qtt-test")
-   (:file "types-extended-dependent-test")
-   (:file "types-extended-advanced-meta-test")
-   (:file "types-extended-advanced-node-test")
-   (:file "types-extended-advanced-meta-validators-test")
-   (:file "types-extended-advanced-contract-test")
-   (:file "types-extended-advanced-validators-test")
-   (:file "types-extended-advanced-validate-test")
-   (:file "types-extended-advanced-init-test")
-   (:file "types-extended-registries-test")
-   (:file "bidirectional-test")
-   (:file "inference-forms-advanced-test")
-   (:file "generics-test")
-   (:file "channels-test")
-   (:file "actors-test")
-   (:file "stm-test")
-   (:file "coroutines-test")
-   (:file "simd-test")
-   (:file "routing-test")
-   (:file "types-hlist-test")
-   (:file "types-utility-test")
-   (:file "kind-test")
-   (:file "multiplicity-test")
-   (:file "row-test")
-   (:file "subtyping-test")
-   (:file "subtyping-extended-test")
-   (:file "effect-test")
-   (:file "constraint-test")
-   (:file "solver-test")
-   (:file "solver-collect-test")
-   (:file "types-extended-nodes-test")
-   (:file "substitution-test")
-   (:file "substitution-zonk-test")
-   (:file "unification-test")
-   (:file "unification-advanced-nodes-test")
-   (:file "unification-effect-rows-test")
-   (:file "types-extended-nodes-children-test")
-   (:file "types-extended-nodes-coverage-test")
-   (:file "checker-test")
-   (:file "typeclass-test")
-   (:file "printer-test")
-   (:file "parser-test")
-   (:file "parser-arrow-quantifier-test")
-   (:file "parser-typed-test")
-   (:file "exhaustiveness-test")
-   (:file "property-test"))
+  (
+   (:module "support" :serial t
+    :components (
+     (:file "package")
+     (:file "assertions")
+     (:file "internal-symbols")
+    ))
+   (:module "facade" :serial t
+    :components (
+     (:file "package")
+     (:file "facade-test")
+    ))
+   (:module "actors" :serial t
+    :components (
+     (:file "package")
+     (:static-file "actors-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "advanced-metadata" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-node-test.lisp")
+     (:static-file "contract-test.lisp")
+     (:static-file "init-test.lisp")
+     (:static-file "meta-test.lisp")
+     (:static-file "meta-validators-test.lisp")
+     (:static-file "validate-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "capabilities" :serial t
+    :components (
+     (:file "package")
+     (:static-file "capabilities-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "channels" :serial t
+    :components (
+     (:file "package")
+     (:static-file "channels-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "checking" :serial t
+    :components (
+     (:file "package")
+     (:static-file "bidirectional-test.lisp")
+     (:static-file "checker-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "concurrency" :serial t
+    :components (
+     (:file "package")
+     (:static-file "concurrency-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "coroutines" :serial t
+    :components (
+     (:file "package")
+     (:static-file "coroutines-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "dependent" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-dependent-test.lisp")
+     (:static-file "dependent-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "effects" :serial t
+    :components (
+     (:file "package")
+     (:static-file "effect-test.lisp")
+     (:static-file "effects-additional-test.lisp")
+     (:static-file "phase-integration-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "exhaustiveness" :serial t
+    :components (
+     (:file "package")
+     (:static-file "exhaustiveness-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "ffi" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-ffi-test.lisp")
+     (:static-file "ffi-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "generics" :serial t
+    :components (
+     (:file "package")
+     (:static-file "generics-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "hlist" :serial t
+    :components (
+     (:file "package")
+     (:static-file "hlist-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "inference" :serial t
+    :components (
+     (:file "package")
+     (:static-file "formatter-edge-cases-test.lisp")
+     (:static-file "inference-effect-tests.lisp")
+     (:static-file "inference-forms-advanced-test.lisp")
+     (:static-file "inference-forms-tests.lisp")
+     (:static-file "inference-tests.lisp")
+     (:static-file "phase-integration-test.lisp")
+     (:static-file "solver-collect-test.lisp")
+     (:static-file "type-inference-tests.lisp")
+     (:static-file "type-system-inference-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "quantities" :serial t
+    :components (
+     (:file "package")
+     (:static-file "multiplicity-test.lisp")
+     (:static-file "qtt-test.lisp")
+     (:static-file "quantities-additional-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "regions" :serial t
+    :components (
+     (:file "package")
+     (:static-file "regions-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "registries" :serial t
+    :components (
+     (:file "package")
+     (:static-file "types-extended-registries-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "routing" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-route-invalid-test.lisp")
+     (:static-file "advanced-route-predicate-test.lisp")
+     (:static-file "advanced-route-valid-test.lisp")
+     (:static-file "routing-test.lisp")
+     (:static-file "types-extended-routing-types-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "rows" :serial t
+    :components (
+     (:file "package")
+     (:static-file "row-test.lisp")
+     (:static-file "rows-printer-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "security-labels" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-security-labels-test.lisp")
+     (:static-file "security-labels-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "simd" :serial t
+    :components (
+     (:file "package")
+     (:static-file "simd-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "stm" :serial t
+    :components (
+     (:file "package")
+     (:static-file "stm-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "subtyping" :serial t
+    :components (
+     (:file "package")
+     (:static-file "subtyping-extended-test.lisp")
+     (:static-file "subtyping-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "syntax" :serial t
+    :components (
+     (:file "package")
+     (:static-file "dispatch-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "type-classes" :serial t
+    :components (
+     (:file "package")
+     (:static-file "typeclass-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "type-level" :serial t
+    :components (
+     (:file "package")
+     (:static-file "types-level-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "type-lowering" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-node-test.lisp")
+     (:static-file "core-node-parser-test.lisp")
+     (:static-file "extended-node-parser-test.lisp")
+     (:static-file "parser-arrow-quantifier-test.lisp")
+     (:static-file "parser-test.lisp")
+     (:static-file "parser-typed-test.lisp")
+     (:static-file "printer-parser-test.lisp")
+     (:static-file "property-test.lisp")
+     (:static-file "registry-adapter-test.lisp")
+     (:static-file "type-phase-parser-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "type-model" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-node-test.lisp")
+     (:static-file "kind-test.lisp")
+     (:static-file "printer-test.lisp")
+     (:static-file "type-phase-skolem-test.lisp")
+     (:static-file "type-system-effect-test.lisp")
+     (:static-file "type-system-test.lisp")
+     (:static-file "types-core-nodes-test.lisp")
+     (:static-file "types-extended-nodes-children-test.lisp")
+     (:static-file "types-extended-nodes-coverage-test.lisp")
+     (:static-file "types-extended-nodes-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "unification" :serial t
+    :components (
+     (:file "package")
+     (:static-file "constraint-test.lisp")
+     (:static-file "solver-test.lisp")
+     (:static-file "substitution-test.lisp")
+     (:static-file "substitution-zonk-test.lisp")
+     (:static-file "unification-advanced-nodes-test.lisp")
+     (:static-file "unification-effect-rows-test.lisp")
+     (:static-file "unification-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "units" :serial t
+    :components (
+     (:file "package")
+     (:static-file "advanced-units-test.lisp")
+     (:static-file "units-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:module "utility-types" :serial t
+    :components (
+     (:file "package")
+     (:static-file "utility-types-test.lisp")
+     (:file "feature-suite")
+    ))
+   (:file "package")
+  )
   :perform (test-op (op system)
              (declare (ignore op system))
              (unless (uiop:symbol-call :cl-weave

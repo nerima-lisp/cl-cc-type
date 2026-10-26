@@ -35,7 +35,7 @@
     # Pin a release so changes to the upstream default branch cannot change
     # this build without warning.
     cl-nix-forge = {
-      url = "github:nerima-lisp/cl-nix-forge/v0.5.0";
+      url = "github:nerima-lisp/cl-nix-forge/v0.7.4";
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
@@ -96,6 +96,7 @@
       # directory as a path. `self` is still what the preset hands the treefmt
       # gate, which wants the unfiltered tree and takes a store path happily.
       root = ./.;
+      sourceInclude = [ ./t/export-surface.txt ];
 
       meta = {
         description = "Common Lisp type system: type inference and checking, extracted from cl-cc";
@@ -184,19 +185,32 @@
           };
         };
         checks = {
-          orphan-tests =
-            let
-              pkgs = nixpkgs.legacyPackages.${ctx.system};
-            in
-            pkgs.runCommand "cl-cc-type-orphan-tests"
-              {
-                src = self;
-                nativeBuildInputs = [ pkgs.python3 ];
-              }
-              ''
-                python3 "$src/scripts/check-orphan-tests.py" "$src"
-                touch "$out"
-              '';
+          feature-lint = ctx.cl.mkFeatureLintCheck {
+            src = ./.;
+            featureDefinitions = "nix/feature-dependencies.sexp";
+            glossary = "docs/src/reference/glossary.md";
+            glossaryHeadingPrefix = "## ";
+            exportSurface = "t/export-surface.txt";
+            mode = "transition";
+            legacyInternalRefs = "t/legacy-internal-refs.sexp";
+            forbiddenNames = [
+              "phases"
+              "misc"
+              "utils"
+              "helpers"
+            ];
+            numberedPrefixes = [
+              "FR-"
+              "W"
+            ];
+            packagePrefix = "cl-cc/type/";
+            infraSuffix = "/infra";
+          };
+          orphan-tests = ctx.cl.mkOrphanTestCheck {
+            src = ./.;
+            testRoots = [ "t" ];
+            testSystems = [ "cl-cc-type/test" ];
+          };
           paredit-lint = paredit-cli.lib.${ctx.system}.mkLintCheck {
             inherit (ctx) src;
             name = "cl-cc-type-paredit-lint";
