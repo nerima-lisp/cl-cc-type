@@ -128,3 +128,41 @@
     (let ((tp type-any))
       (declare (ignorable tp))
       (expect tp :to-be-instance-of 'type-primitive))))
+
+(progn
+  (it-sequential "type-env-defvar-with-type-check-fixture"
+    (let ((env (type-env-extend '*typed-top-level*
+                                (make-type-scheme nil
+                                                  (make-type-primitive :name 'fixnum))
+                                (type-env-empty))))
+      (multiple-value-bind (scheme found-p)
+          (type-env-lookup '*typed-top-level* env)
+        (expect found-p :to-be-truthy)
+        (expect (type-primitive-name (type-scheme-type scheme)) :to-be 'fixnum))))
+  (it-sequential "type-env-defvar-without-type-check-fixture"
+    (let ((env (type-env-extend '*typed-top-level-no-check*
+                                (make-type-scheme nil
+                                                  (make-type-primitive :name 'fixnum))
+                                (type-env-empty))))
+      (multiple-value-bind (scheme found-p)
+          (type-env-lookup '*typed-top-level-no-check* env)
+        (expect found-p :to-be-truthy)
+        (expect (type-primitive-name (type-scheme-type scheme)) :to-be 'fixnum))))
+  (it-sequential "type-env-defun-with-type-check-fixture"
+    (let ((env (type-env-extend 'typed-id
+                                (make-type-scheme nil
+                                                  (make-type-arrow (list type-int) type-int))
+                                (type-env-empty))))
+      (multiple-value-bind (scheme found-p)
+          (type-env-lookup 'typed-id env)
+        (expect found-p :to-be-truthy)
+        (expect (type-arrow-p (type-scheme-type scheme)) :to-be-truthy))))
+  (it-sequential "type-env-defun-without-type-check-fixture"
+    (let ((env (type-env-extend 'typed-id-no-check
+                                (make-type-scheme nil
+                                                  (make-type-arrow (list type-int) type-int))
+                                (type-env-empty))))
+      (multiple-value-bind (scheme found-p)
+          (type-env-lookup 'typed-id-no-check env)
+        (expect found-p :to-be-truthy)
+        (expect (type-arrow-p (type-scheme-type scheme)) :to-be-truthy)))))
